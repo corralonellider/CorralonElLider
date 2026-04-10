@@ -62,12 +62,12 @@ const Sidebar = ({ isOpen, setIsOpen }: { isOpen: boolean, setIsOpen: (v: boolea
       `)}>
         <div className="p-8 flex items-center justify-between border-b border-white/5">
           <div className="flex items-center gap-4">
-            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-brand-blue shadow-lg">
-              <Store size={22} />
+            <div className="w-10 h-10 bg-brand-red rounded-lg flex items-center justify-center text-white font-black text-xl shadow-lg border border-red-500/30">
+              L
             </div>
-            <div>
-              <h2 className="font-black text-white text-lg leading-none tracking-tight uppercase">El Líder</h2>
-              <p className="text-[10px] text-white/40 uppercase font-black tracking-widest mt-1">Manejo Operativo</p>
+            <div className="flex flex-col">
+              <span className="font-black text-white text-xl tracking-tighter uppercase leading-none mt-1">El Líder<span className="text-brand-red">.</span></span>
+              <span className="text-[9px] text-white/40 font-bold uppercase tracking-[0.2em] mt-1">Gestión Interna</span>
             </div>
           </div>
           <button className="lg:hidden p-2 text-white/40 hover:text-white" onClick={() => setIsOpen(false)}>
