@@ -1,0 +1,2 @@
+﻿src/pages/POS.tsx(81,52): error TS2339: Property 'phone' does not exist on type 'Customer'.
+
