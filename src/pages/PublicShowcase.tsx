@@ -163,7 +163,7 @@ export const PublicShowcase = () => {
               <Button
                 variant="outline"
                 className="h-14 px-10 text-lg font-black border-white/20 text-white hover:bg-white/5"
-                onClick={() => window.open('https://maps.google.com/?q=Av.+Avellaneda+5770,+1646+Buenos+Aires', '_blank')}
+                onClick={() => window.open('https://maps.google.com/?q=Av.+Avellaneda+5770,+Virreyes,+San+Fernando,+Buenos+Aires', '_blank')}
               >
                 Nuestra Ubicación
               </Button>
@@ -296,18 +296,20 @@ export const PublicShowcase = () => {
           <div>
             <h4 className="font-black uppercase tracking-widest text-xs mb-6 text-brand-red">Contacto</h4>
             <ul className="space-y-4 text-sm font-bold text-slate-400">
-              <li className="flex items-start gap-3"><MapPin size={18} className="text-brand-red shrink-0" /> Av. Avellaneda 5770, 1646 Buenos Aires · 21 km</li>
-              <li className="flex items-center gap-3"><Phone size={18} className="text-brand-red shrink-0" /> 9 11 6469-5865</li>
-              <li className="flex items-center gap-3"><MessageCircle size={18} className="text-brand-red shrink-0" /> +54 9 11 6469-5865</li>
+              <li className="flex items-start gap-3"><MapPin size={18} className="text-brand-red shrink-0" /> Av. Avellaneda 5770, CP 1646 Virreyes, San Fernando</li>
+              <li className="flex items-center gap-3"><Phone size={18} className="text-brand-red shrink-0" /> 11 3348-3980 (Llamadas)</li>
+              <li className="flex items-center gap-3"><MessageCircle size={18} className="text-brand-red shrink-0" /> +54 9 11 6469-5865 (WhatsApp)</li>
             </ul>
           </div>
 
           <div className="p-8 bg-white/5 rounded-[2rem] border border-white/5">
             <h4 className="font-black uppercase tracking-widest text-xs mb-4">Horarios Operativos</h4>
             <div className="space-y-3">
-              <div className="flex justify-between text-sm">
-                <span className="text-slate-400">Lunes a Viernes</span>
-                <span className="font-bold">08 - 18hs</span>
+              <div className="flex flex-col text-sm">
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Lunes a Viernes</span>
+                  <span className="font-bold">08-12 / 13-17hs</span>
+                </div>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-slate-400">Sábados</span>
