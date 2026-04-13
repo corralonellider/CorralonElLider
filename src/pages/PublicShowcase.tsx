@@ -297,8 +297,8 @@ export const PublicShowcase = () => {
             <h4 className="font-black uppercase tracking-widest text-xs mb-6 text-brand-red">Contacto</h4>
             <ul className="space-y-4 text-sm font-bold text-slate-400">
               <li className="flex items-start gap-3"><MapPin size={18} className="text-brand-red shrink-0" /> Av. Avellaneda 5770, 1646 Buenos Aires · 21 km</li>
-              <li className="flex items-center gap-3"><Phone size={18} className="text-brand-red shrink-0" /> 11 3348-3980</li>
-              <li className="flex items-center gap-3"><MessageCircle size={18} className="text-brand-red shrink-0" /> +54 11 3348-3980</li>
+              <li className="flex items-center gap-3"><Phone size={18} className="text-brand-red shrink-0" /> 9 11 6469-5865</li>
+              <li className="flex items-center gap-3"><MessageCircle size={18} className="text-brand-red shrink-0" /> +54 9 11 6469-5865</li>
             </ul>
           </div>
 
