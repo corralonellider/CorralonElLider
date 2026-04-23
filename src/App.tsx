@@ -17,7 +17,8 @@ import {
   LogOut,
   Bell,
   Search,
-  Globe
+  Globe,
+  FileText
 } from 'lucide-react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Dashboard } from './pages/Dashboard';
@@ -27,7 +28,30 @@ import { Customers } from './pages/Customers';
 import { PublicShowcase } from './pages/PublicShowcase';
 import { Cash } from './pages/Cash';
 import { Deliveries } from './pages/Deliveries';
+import { SalesHistory } from './pages/SalesHistory';
+import { Finance } from './pages/Finance';
+import { Login } from './pages/Login';
 import { cn, Button } from './components/ui';
+
+// --- PROTECTED ROUTE ---
+const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+  const { session, loading } = useAuth();
+  const location = useLocation();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="animate-spin w-12 h-12 border-4 border-brand-blue border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  if (!session) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  return <>{children}</>;
+};
 
 // --- LAYOUT COMPONENTS ---
 
@@ -42,7 +66,7 @@ const Sidebar = ({ isOpen, setIsOpen }: { isOpen: boolean, setIsOpen: (v: boolea
     { icon: Users, label: 'Clientes y Cuentas', path: '/admin/clientes' },
     { icon: Globe, label: 'Vidriera Web', path: '/' },
     { icon: Truck, label: 'Entregas', path: '/admin/entregas' },
-    { icon: Wallet, label: 'Caja Diaria', path: '/admin/caja' },
+    { icon: Wallet, label: 'Finanzas', path: '/admin/finanzas' },
     { icon: BarChart3, label: 'Reportes', path: '/admin/reportes' },
   ];
 
@@ -102,7 +126,6 @@ const Sidebar = ({ isOpen, setIsOpen }: { isOpen: boolean, setIsOpen: (v: boolea
           <div className="bg-white/5 rounded-3xl p-5 border border-white/5">
             <div className="flex items-center gap-4">
               <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-red to-brand-blue flex items-center justify-center text-white font-black shadow-lg">
-
                 {profile?.full_name?.charAt(0) || 'U'}
               </div>
               <div className="flex-1 overflow-hidden">
@@ -111,6 +134,7 @@ const Sidebar = ({ isOpen, setIsOpen }: { isOpen: boolean, setIsOpen: (v: boolea
               </div>
               <button 
                 onClick={signOut} 
+                title="Cerrar Sesión"
                 className="text-white/20 hover:text-brand-red transition-all p-2 rounded-lg hover:bg-white/5"
               >
                 <LogOut size={18} />
@@ -196,6 +220,14 @@ const AppContent = () => {
   }, []);
 
 
+  if (location.pathname === '/login') {
+    return (
+      <Routes>
+        <Route path="/login" element={<Login />} />
+      </Routes>
+    );
+  }
+
   if (location.pathname === '/' || (!location.pathname.startsWith('/admin') && location.pathname !== '/catalogo')) {
     return (
       <Routes>
@@ -207,25 +239,27 @@ const AppContent = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex overflow-hidden">
-      <Sidebar isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
-      
-      <div className="flex-1 flex flex-col min-w-0 lg:pl-72">
-        <Header onMenuClick={() => setIsSidebarOpen(true)} isSessionOpen={isSessionOpen} />
-        <main className="flex-1 p-4 md:p-8 lg:p-10 max-h-[calc(100vh-80px)] overflow-y-auto">
-          <Routes>
-            <Route path="/admin" element={<Dashboard />} />
-            <Route path="/admin/pos" element={<POS />} />
-            <Route path="/admin/productos" element={<Products />} />
-            <Route path="/admin/clientes" element={<Customers />} />
-            <Route path="/admin/entregas" element={<Deliveries />} />
-            <Route path="/admin/caja" element={<Cash />} />
-            <Route path="/admin/reportes" element={<Dashboard />} />
-            <Route path="*" element={<Navigate to="/admin" replace />} />
-          </Routes>
-        </main>
+    <ProtectedRoute>
+      <div className="min-h-screen bg-slate-50 flex overflow-hidden">
+        <Sidebar isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
+        
+        <div className="flex-1 flex flex-col min-w-0 lg:pl-72">
+          <Header onMenuClick={() => setIsSidebarOpen(true)} isSessionOpen={isSessionOpen} />
+          <main className="flex-1 p-4 md:p-8 lg:p-10 max-h-[calc(100vh-80px)] overflow-y-auto">
+            <Routes>
+              <Route path="/admin" element={<Dashboard />} />
+              <Route path="/admin/pos" element={<POS />} />
+              <Route path="/admin/productos" element={<Products />} />
+              <Route path="/admin/clientes" element={<Customers />} />
+              <Route path="/admin/entregas" element={<Deliveries />} />
+              <Route path="/admin/finanzas" element={<Finance />} />
+              <Route path="/admin/reportes" element={<Dashboard />} />
+              <Route path="*" element={<Navigate to="/admin" replace />} />
+            </Routes>
+          </main>
+        </div>
       </div>
-    </div>
+    </ProtectedRoute>
   );
 };
 

@@ -13,7 +13,9 @@ import {
   FileText,
   X,
   Search,
-  AlertTriangle
+  AlertTriangle,
+  FileX,
+  Printer
 } from 'lucide-react';
 
 import { AnimatePresence, motion } from 'framer-motion';
@@ -40,7 +42,7 @@ interface CashMovement {
   sale_id?: string;
 }
 
-export const Cash = () => {
+export const Cash = ({ isTab }: { isTab?: boolean }) => {
   const { user } = useAuth();
   const [currentSession, setCurrentSession] = useState<CashSession | null>(null);
   const [movements, setMovements] = useState<CashMovement[]>([]);
@@ -52,6 +54,7 @@ export const Cash = () => {
   const [countedAmount, setCountedAmount] = useState<number>(0);
   const [showResult, setShowResult] = useState(false);
   const [selectedSaleItems, setSelectedSaleItems] = useState<any[]>([]);
+  const [selectedSale, setSelectedSale] = useState<any | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -81,7 +84,7 @@ export const Cash = () => {
   const fetchMovements = async (sessionId: string) => {
     const { data } = await supabase
       .from('payments')
-      .select('*')
+      .select('*, sales(document_type, afip_cbte_nro, order_number, afip_cae, afip_nc_cae)')
       .eq('session_id', sessionId)
       .order('created_at', { ascending: false });
 
@@ -93,34 +96,133 @@ export const Cash = () => {
         description: m.reference_code || (m.method === 'EFECTIVO' ? 'Venta de Mostrador' : 'Cobro Sistema'),
         created_at: m.created_at,
         movement_type: m.amount >= 0 ? 'ingreso' : 'egreso',
-        sale_id: m.sale_id
+        sale_id: m.sale_id,
+        sale_info: (m as any).sales
       })));
     }
   };
 
   const handleViewSaleDetail = async (saleId: string) => {
-    const { data: items } = await supabase
-      .from('sale_items')
-      .select('*')
-      .eq('sale_id', saleId);
-    
-    if (items && items.length > 0) {
-      const productIds = items.map((i: any) => i.product_id);
-      const { data: productsData } = await supabase
-        .from('products')
-        .select('id, name, unit')
-        .in('id', productIds);
+    setLoading(true);
+    // Fetch sale info
+    const { data: saleData } = await supabase
+      .from('sales')
+      .select('*, customer:customers(*)')
+      .eq('id', saleId)
+      .single();
 
-      const enrichedItems = items.map((item: any) => ({
-        ...item,
-        product: productsData?.find((p: any) => p.id === item.product_id) || { name: 'Producto Desconocido', unit: 'U' },
-        total_price: item.total_price || item.subtotal || (item.unit_price * item.quantity)
-      }));
+    if (saleData) {
+      setSelectedSale(saleData);
+      
+      const { data: items } = await supabase
+        .from('sale_items')
+        .select('*')
+        .eq('sale_id', saleId);
+      
+      if (items && items.length > 0) {
+        const productIds = items.map((i: any) => i.product_id);
+        const { data: productsData } = await supabase
+          .from('products')
+          .select('id, name, unit')
+          .in('id', productIds);
 
-      setSelectedSaleItems(enrichedItems);
-      setIsDetailModalOpen(true);
+        const enrichedItems = items.map((item: any) => ({
+          ...item,
+          product: productsData?.find((p: any) => p.id === item.product_id) || { name: 'Producto Desconocido', unit: 'U' },
+          total_price: item.total_price || item.subtotal || (item.unit_price * item.quantity)
+        }));
+
+        setSelectedSaleItems(enrichedItems);
+        setIsDetailModalOpen(true);
+      } else {
+        alert("No se encontraron productos para esta transacción.");
+      }
     } else {
-      alert("No se encontraron productos para esta transacción.");
+      alert("No se encontró información de la venta.");
+    }
+    setLoading(false);
+  };
+
+  const handleCreditNote = async () => {
+    if (!selectedSale || !currentSession) return;
+
+    const confirmNC = window.confirm(`¿Estás seguro de que deseas generar una NOTA DE CRÉDITO para anular esta factura?\n\nComprobante: ${selectedSale.document_type} ${String(selectedSale.afip_cbte_nro).padStart(8, '0')}\nTotal: $${selectedSale.total.toLocaleString()}`);
+    
+    if (!confirmNC) return;
+
+    let issuer_cuit = selectedSale.issuer_cuit;
+    if (!issuer_cuit) {
+        issuer_cuit = window.prompt("Ingrese el CUIT del Emisor para esta Nota de Crédito (Ej: 30716493365):");
+        if (!issuer_cuit) return;
+    }
+
+    setLoading(true);
+    try {
+        const response = await fetch('http://localhost:3002/api/afip/credit-note', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                cuit_emisor: issuer_cuit,
+                importe_total: selectedSale.total,
+                tipo_doc: selectedSale.customer?.cuit ? 80 : 99,
+                nro_doc: selectedSale.customer?.cuit ? parseInt(selectedSale.customer.cuit.replace(/[^0-9]/g, '')) : 0,
+                original_tipo_comprobante: selectedSale.document_type === 'FACTURA_A' ? 1 : selectedSale.document_type === 'FACTURA_B' ? 6 : 11,
+                original_punto_venta: selectedSale.afip_pto_vta || 1,
+                original_cbte_nro: selectedSale.afip_cbte_nro
+            })
+        });
+
+        const data = await response.json();
+        if (!data.success) {
+            alert('Error AFIP NC: ' + (data.error || 'Fallo en la generación'));
+            setLoading(false);
+            return;
+        }
+
+        // 1. Actualizar la venta en Supabase con los datos de la NC
+        const { error: updateError } = await supabase
+            .from('sales')
+            .update({
+                afip_nc_cae: data.cae,
+                afip_nc_cbte_nro: data.cbte_nro,
+                afip_nc_vto_cae: data.vto_cae ? new Date(data.vto_cae.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3')).toISOString() : null,
+                payment_status: 'REFUNDED'
+            })
+            .eq('id', selectedSale.id);
+
+        if (updateError) console.error('Error actualizando venta con NC:', updateError);
+
+        // 2. Registrar el egreso en la caja (devolución de dinero)
+        await supabase.from('payments').insert([{
+            session_id: currentSession.id,
+            sale_id: selectedSale.id,
+            amount: -selectedSale.total,
+            method: 'EFECTIVO',
+            reference_code: `NC ${data.cbte_nro} (Anula ${selectedSale.document_type})`
+        }]);
+
+        // 3. Devolver stock
+        for (const item of selectedSaleItems) {
+            const { data: prod } = await supabase.from('inventory').select('stock_current').eq('product_id', item.product_id).single();
+            if (prod) {
+                await supabase.from('inventory').update({ stock_current: prod.stock_current + item.quantity }).eq('product_id', item.product_id);
+            }
+            await supabase.from('inventory_movements').insert([{
+                product_id: item.product_id,
+                quantity: item.quantity,
+                type: 'RETURN',
+                description: `Devolución NC ${data.cbte_nro}`,
+                reference_id: selectedSale.id
+            }]);
+        }
+
+        alert(`¡Nota de Crédito generada con éxito!\nNúmero: NC ${data.cbte_nro}\nCAE: ${data.cae}`);
+        setIsDetailModalOpen(false);
+        fetchMovements(currentSession.id);
+    } catch (err: any) {
+        alert('Error conectando con el servidor AFIP: ' + err.message);
+    } finally {
+        setLoading(false);
     }
   };
 
@@ -231,19 +333,22 @@ export const Cash = () => {
   const filteredMovements = movements.filter(m => 
     (m.description?.toLowerCase() || '').includes(searchQuery.toLowerCase()) || 
     (m.sale_id?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+    (m as any).sale_info?.afip_cbte_nro?.toString().includes(searchQuery) ||
     m.amount.toString().includes(searchQuery)
   );
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-black text-slate-900 flex items-center gap-3">
-            <Wallet size={32} className="text-brand-blue" />
-            Caja Diaria
-          </h1>
-          <p className="text-slate-500 font-medium">Control de ingresos, egresos y arqueo de caja.</p>
-        </div>
+    <div className={cn("space-y-8", isTab ? "pt-2" : "")}>
+      <div className={cn("flex flex-col md:flex-row justify-between items-start md:items-center gap-4", isTab ? "md:justify-end" : "")}>
+        {!isTab && (
+          <div>
+            <h1 className="text-3xl font-black text-slate-900 flex items-center gap-3">
+              <Wallet size={32} className="text-brand-blue" />
+              Caja Diaria
+            </h1>
+            <p className="text-slate-500 font-medium">Control de ingresos, egresos y arqueo de caja.</p>
+          </div>
+        )}
 
         {currentSession?.status === 'ABIERTA' ? (
           <Button variant="danger" className="h-12 px-8" onClick={() => setIsClosingModalOpen(true)}>
@@ -357,11 +462,14 @@ export const Cash = () => {
                           <p className="font-bold text-slate-800">{m.description}</p>
                           {m.sale_id && (
                             <Badge 
-                              variant="blue" 
-                              className="text-[9px] h-4 cursor-pointer hover:bg-blue-100 transition-colors"
+                              variant={(m as any).sale_info?.afip_nc_cae ? 'red' : ((m as any).sale_info?.afip_cae ? 'green' : 'blue')}
+                              className="text-[9px] h-5 cursor-pointer transition-all uppercase font-black px-2 shadow-sm border-none hover:brightness-95"
                               onClick={() => handleViewSaleDetail(m.sale_id!)}
                             >
-                              REF: #{m.sale_id.slice(0,8)}
+                              {(m as any).sale_info?.afip_cbte_nro 
+                                ? `${(m as any).sale_info.document_type?.replace('FACTURA_', 'FAC ') || 'DOC'}: ${String((m as any).sale_info.afip_cbte_nro).padStart(8, '0')}`
+                                : `REF: #${m.sale_id.slice(0,8)}`}
+                              {(m as any).sale_info?.afip_nc_cae && " (ANULADA)"}
                             </Badge>
                           )}
                         </div>
@@ -401,13 +509,42 @@ export const Cash = () => {
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
              <Card className="w-full max-w-lg p-0 overflow-hidden relative">
                 <div className="p-6 border-b bg-slate-50 flex justify-between items-center">
-                   <h3 className="font-black text-slate-800 flex items-center gap-2 uppercase tracking-tighter">
-                     📦 Detalle de la Operación
-                   </h3>
+                   <div className="flex flex-col">
+                    <h3 className="font-black text-slate-800 flex items-center gap-2 uppercase tracking-tighter">
+                      📦 Detalle de la Operación
+                    </h3>
+                    {selectedSale && (
+                      <div className="flex items-center gap-2 mt-1">
+                        <Badge variant="slate" className="text-[10px] font-black uppercase">
+                          {selectedSale.document_type?.replace('_', ' ')}
+                        </Badge>
+                        {selectedSale.afip_cbte_nro && (
+                          <span className="text-[10px] font-bold text-slate-500 tracking-wider">
+                            Nº {String(selectedSale.afip_cbte_nro).padStart(8, '0')}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                   </div>
                    <button onClick={() => setIsDetailModalOpen(false)} className="p-2 hover:bg-slate-200 rounded-full transition-colors">
                      <X size={20} />
                    </button>
                 </div>
+
+                {selectedSale?.afip_cae && (
+                  <div className="px-6 py-2 bg-brand-blue/5 border-b border-brand-blue/10 flex justify-between items-center">
+                    <div className="flex flex-col">
+                      <span className="text-[9px] font-black text-brand-blue uppercase opacity-60">CAE Autorizado</span>
+                      <span className="text-xs font-mono font-bold text-brand-blue tracking-widest">{selectedSale.afip_cae}</span>
+                    </div>
+                    {selectedSale.customer && (
+                      <div className="text-right">
+                        <span className="text-[9px] font-black text-slate-400 uppercase">Cliente</span>
+                        <p className="text-[10px] font-bold text-slate-600 uppercase">{selectedSale.customer.name}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
                 
                 <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
                    {selectedSaleItems.map((item, idx) => (
@@ -430,11 +567,26 @@ export const Cash = () => {
                        ${selectedSaleItems.reduce((acc, i) => acc + Number(i.total_price), 0).toLocaleString()}
                      </p>
                    </div>
-                   <div className="flex gap-2 w-full sm:w-auto">
-                     <Button onClick={handleProcessRefund} className="flex-1 sm:flex-none h-10 px-4 bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs">
-                       <AlertTriangle size={14} className="mr-2" />
-                       Anular / Devolver
-                     </Button>
+                   <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+                     {selectedSale?.afip_cae && !selectedSale?.afip_nc_cae ? (
+                        <Button 
+                          onClick={handleCreditNote} 
+                          disabled={loading}
+                          className="flex-1 sm:flex-none h-10 px-4 bg-brand-red hover:bg-red-700 text-white font-bold text-xs"
+                        >
+                          <FileX size={14} className="mr-2" />
+                          Generar Nota de Crédito
+                        </Button>
+                     ) : (
+                        <Button 
+                          onClick={handleProcessRefund} 
+                          disabled={loading || selectedSale?.payment_status === 'REFUNDED'}
+                          className="flex-1 sm:flex-none h-10 px-4 bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs"
+                        >
+                          <AlertTriangle size={14} className="mr-2" />
+                          {selectedSale?.payment_status === 'REFUNDED' ? 'Ya Anulada' : 'Anulación Manual'}
+                        </Button>
+                     )}
                      <Button onClick={() => setIsDetailModalOpen(false)} className="h-10 px-4 bg-white/10 hover:bg-white/20 text-white font-bold text-xs">
                        Cerrar
                      </Button>

@@ -4,6 +4,7 @@ import { Card, Button, Badge, Input } from '../components/ui';
 import { Search, ShoppingCart, Users, Plus, Minus, X, MessageCircle, FileText, CheckCircle2, CreditCard, Banknote } from 'lucide-react';
 import { cn } from '../components/ui';
 import { motion, AnimatePresence } from 'framer-motion';
+import { printTicket } from '../lib/printer';
 
 
 interface Product {
@@ -23,6 +24,7 @@ interface Customer {
   name: string;
   price_list_id: string;
   phone?: string;
+  cuit?: string;
 }
 
 export const POS = () => {
@@ -38,6 +40,7 @@ export const POS = () => {
 
   const [activeSession, setActiveSession] = useState<any>(null);
   const [documentType, setDocumentType] = useState('REMITO');
+  const [cuitEmisor, setCuitEmisor] = useState('30716493365');
   const [cashAmount, setCashAmount] = useState<number>(0);
   const [systemAmount, setSystemAmount] = useState<number>(0);
   const [paymentMode, setPaymentMode] = useState<'SINGLE' | 'SPLIT'>('SINGLE');
@@ -60,7 +63,7 @@ export const POS = () => {
   }, [debouncedSearch]);
 
   const fetchCustomers = async () => {
-    const { data } = await supabase.from('customers').select('*').limit(50);
+    const { data } = await supabase.from('customers').select('id, name, price_list_id, phone, cuit').limit(50);
     if (data) setCustomers(data);
   };
 
@@ -140,6 +143,11 @@ export const POS = () => {
 
   const handleFinalize = async (isQuote = false) => {
     if (cart.length === 0) return;
+
+    if (!isQuote && documentType === 'FACTURA_A' && (!selectedCustomer || !selectedCustomer.cuit)) {
+      alert('Error: Para emitir una FACTURA A es obligatorio seleccionar un cliente que tenga un CUIT cargado.');
+      return;
+    }
     
     const { data: latestSession } = await supabase
       .from('cash_sessions')
@@ -163,6 +171,52 @@ export const POS = () => {
       document_type: documentType
     };
     
+    // Llamar a AFIP si es factura y hay CUIT Emisor
+    let afipData = null;
+    const isFactura = documentType.startsWith('FACTURA');
+
+    if (!isQuote && isFactura) {
+      if (!cuitEmisor) {
+        alert('Error: Debes ingresar el CUIT del Emisor para generar una Factura Electrónica.');
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const afipResponse = await fetch('http://localhost:3002/api/afip/invoice', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            cuit_emisor: cuitEmisor,
+            importe_total: total,
+            concepto: 1, // 1 = Productos
+            tipo_comprobante: documentType === 'FACTURA_A' ? 1 : documentType === 'FACTURA_B' ? 6 : 11,
+            tipo_doc: selectedCustomer?.cuit ? 80 : 99, // 80: CUIT, 99: Consumidor Final
+            nro_doc: selectedCustomer?.cuit ? parseInt(selectedCustomer.cuit.replace(/[^0-9]/g, '')) : 0,
+          })
+        });
+        const afipJson = await afipResponse.json();
+        if (!afipJson.success) {
+          alert('Error AFIP: ' + (afipJson.error || 'Generación fallida'));
+          setLoading(false);
+          return;
+        }
+        afipData = afipJson;
+      } catch (err: any) {
+        alert('Error contectando con el servidor AFIP local: ' + err.message);
+        setLoading(false);
+        return;
+      }
+    }
+
+    if (afipData) {
+      insertData.afip_cae = afipData.cae;
+      insertData.afip_vto_cae = afipData.vto_cae ? new Date(afipData.vto_cae.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3')).toISOString() : null;
+      insertData.afip_pto_vta = afipData.pto_vta;
+      insertData.afip_cbte_nro = afipData.cbte_nro;
+      insertData.issuer_cuit = cuitEmisor;
+    }
+
     if (isQuote) {
       insertData.status = 'PENDIENTE';
     } else {
@@ -178,6 +232,7 @@ export const POS = () => {
 
     if (error) {
        console.error('Error insertando venta:', error);
+       alert('Error al registrar la venta en la base de datos: ' + error.message);
        setLoading(false);
        return;
     }
@@ -185,7 +240,18 @@ export const POS = () => {
     const entryId = entry.id;
     const friendlyId = entry.order_number ? `#${entry.order_number}` : `#${entryId.slice(0,8)}`;
 
-    setSaleResult({ id: entryId, order_number: entry.order_number, type: documentType, items: [...cart], total, customer: selectedCustomer, method: paymentMethod });
+    setSaleResult({ 
+      id: entryId, 
+      order_number: entry.order_number, 
+      type: documentType, 
+      items: [...cart], 
+      total, 
+      customer: selectedCustomer, 
+      method: paymentMethod,
+      afip_cae: insertData.afip_cae,
+      afip_vto_cae: insertData.afip_vto_cae,
+      afip_cbte_nro: insertData.afip_cbte_nro
+    });
 
     const items = cart.map(item => ({
       [isQuote ? 'quote_id' : 'sale_id']: entryId,
@@ -260,69 +326,43 @@ export const POS = () => {
 
   const handlePrintTicket = () => {
     if (!saleResult) return;
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
+    const saleData = {
+      ...saleResult,
+      customer_name: saleResult.customer?.name || 'CONSUMIDOR FINAL',
+      customer_cuit: saleResult.customer?.cuit,
+      type: saleResult.type
+    };
+    printTicket(saleData);
+  };
 
-    const html = `
-      <html>
-        <head>
-          <title>Comprobante de Venta - El Líder</title>
-          <style>
-            body { font-family: monospace; padding: 20px; color: black; max-width: 300px; }
-            .header { text-align: center; border-bottom: 2px dashed black; padding-bottom: 10px; margin-bottom: 10px; }
-            h2 { margin: 5px 0; }
-            table { width: 100%; font-size: 11px; margin: 10px 0; }
-            .total { font-size: 16px; font-weight: bold; text-align: right; border-top: 1px solid black; padding-top: 10px; }
-            .footer { margin-top: 20px; text-align: center; font-size: 10px; }
-            .invoice-type { border: 2px solid black; display: inline-block; padding: 5px 15px; font-size: 20px; font-weight: bold; }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <div class="invoice-type">${saleResult.type.split('_').pop()}</div>
-            <h2>EL LÍDER</h2>
-            <p>Maquinaria y Materiales</p>
-            <p><strong>N° COMPROBANTE: ${saleResult.order_number || saleResult.id.slice(0,8)}</strong></p>
-            <p>Fecha: ${new Date().toLocaleDateString('es-AR')}</p>
-            <p>Pago: ${saleResult.method}</p>
-          </div>
+  const handleWhatsAppShare = async () => {
+    if (!saleResult || !selectedCustomer?.phone) {
+      if (!selectedCustomer?.phone) alert('El cliente no tiene un teléfono registrado.');
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      const saleData = {
+        ...saleResult,
+        customer_name: saleResult.customer?.name || 'CONSUMIDOR FINAL',
+        customer_cuit: saleResult.customer?.cuit,
+        type: saleResult.type
+      };
+      
+      const { generateAndUploadTicketPDF } = await import('../lib/printer');
+      const pdfUrl = await generateAndUploadTicketPDF(saleData);
 
-          <div>
-            <p><strong>CLIENTE:</strong> ${saleResult.customer?.name || 'CONSUMIDOR FINAL'}</p>
-          </div>
-
-          <table>
-            <thead>
-              <tr>
-                <th align="left">ITEM</th>
-                <th align="right">SUBT.</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${saleResult.items.map((i: any) => `
-                <tr>
-                  <td>${i.qty} x ${i.product.name.slice(0,25)}</td>
-                  <td align="right">$${(i.qty * i.price).toLocaleString()}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-
-          <div class="total">
-            TOTAL: $${saleResult.total.toLocaleString()}
-          </div>
-
-          <div class="footer">
-            --- Gracias por su compra ---
-            <br/> Corralón El Líder 
-          </div>
-          <script>window.print(); window.close();</script>
-        </body>
-      </html>
-    `;
-
-    printWindow.document.write(html);
-    printWindow.document.close();
+      const phone = selectedCustomer.phone.replace(/[^0-9]/g, '');
+      const docName = saleResult.afip_cae ? 'Factura' : 'Remito';
+      const text = `¡Hola! Aquí tienes tu comprobante de compra (${docName}) de Corralón El Líder:\n\n📄 Ver PDF: ${pdfUrl}\n\n¡Gracias por tu compra!`;
+      
+      window.open(`https://wa.me/${phone.startsWith('54') ? phone : '54' + phone}?text=${encodeURIComponent(text)}`, '_blank');
+    } catch (error: any) {
+      alert(error.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -395,7 +435,8 @@ export const POS = () => {
              <span>Cliente</span>
           </div>
           <select 
-            className="w-full input-standard text-sm"
+            className="w-full input-standard text-sm cursor-pointer relative z-50"
+            value={selectedCustomer?.id || ""}
             onChange={(e) => setSelectedCustomer(customers.find(c => c.id === e.target.value) || null)}
           >
             <option value="">Consumidor Final</option>
@@ -518,6 +559,7 @@ export const POS = () => {
                  </select>
               </div>
             </div>
+            
 
             <div className="flex flex-col gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100">
                <div className="flex justify-between items-center">
@@ -587,6 +629,18 @@ export const POS = () => {
             </div>
           </div>
           
+          <div className="p-3 bg-slate-100 rounded-2xl border border-slate-200 space-y-2 mt-4">
+              <label className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1">
+                  <FileText size={12} /> CUIT Emisor (AFIP)
+              </label>
+              <Input 
+                placeholder="30716493365"
+                className="h-9 text-sm font-black bg-white border-slate-300"
+                value={cuitEmisor}
+                onChange={(e) => setCuitEmisor(e.target.value)}
+              />
+          </div>
+          
           <Button 
              className="w-full h-14 text-lg font-black tracking-tight mt-6"
              onClick={() => handleFinalize()}
@@ -618,12 +672,19 @@ export const POS = () => {
                 <h2 className="text-3xl font-black text-slate-900">Operación Exitosa</h2>
                 <p className="text-slate-500 mt-2">La venta ha sido registrada y el stock actualizado.</p>
               </div>
-              <div className="flex gap-3 w-full">
-                <Button onClick={() => setIsSuccess(false)} variant="outline" className="flex-1">Nueva Venta</Button>
-                <Button onClick={handlePrintTicket} className="flex-1 bg-brand-blue">
-                   <FileText size={18} /> Imprimir Ticket
-                </Button>
-              </div>
+               <div className="flex flex-col gap-2 w-full">
+                 <div className="flex gap-3">
+                   <Button onClick={() => setIsSuccess(false)} variant="outline" className="flex-1">Nueva Venta</Button>
+                   <Button onClick={handlePrintTicket} className="flex-1 bg-slate-900">
+                      <FileText size={18} /> Imprimir
+                   </Button>
+                 </div>
+                 {selectedCustomer?.phone && (
+                   <Button onClick={handleWhatsAppShare} className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-black">
+                     <MessageCircle size={18} /> Enviar por WhatsApp
+                   </Button>
+                 )}
+               </div>
             </motion.div>
           </motion.div>
         )}

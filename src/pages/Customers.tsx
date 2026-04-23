@@ -35,6 +35,7 @@ interface Customer {
   name: string;
   phone: string;
   address: string;
+  cuit?: string;
   credit_limit: number;
   balance?: number;
 }
@@ -45,8 +46,9 @@ export const Customers = () => {
   const [ledger, setLedger] = useState<LedgerItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [newCustomer, setNewCustomer] = useState({ name: '', phone: '', address: '', credit_limit: 10000 });
+  const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [customerForm, setCustomerForm] = useState({ id: '', name: '', phone: '', cuit: '', address: '', credit_limit: 10000 });
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState(0);
   const [paymentDescription, setPaymentDescription] = useState('Pago de cuenta');
@@ -72,14 +74,47 @@ export const Customers = () => {
     setLoading(false);
   };
 
-  const handleAddCustomer = async (e: React.FormEvent) => {
-
+  const handleSaveCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
-    const { error } = await supabase.from('customers').insert([newCustomer]);
-    if (!error) {
+    if (isEditing) {
+      const { id, ...updateData } = customerForm;
+      const { error } = await supabase.from('customers').update(updateData).eq('id', id);
+      if (error) {
+        console.error('Error al actualizar cliente:', error);
+        alert('Error al actualizar cliente: ' + error.message);
+      } else {
+        fetchCustomers();
+        setIsCustomerModalOpen(false);
+        // Update selected customer if we are viewing it
+        if (selectedCustomer?.id === id) {
+           setSelectedCustomer({ ...selectedCustomer, ...updateData });
+        }
+        alert('✅ Cliente actualizado correctamente');
+      }
+    } else {
+      const { id, ...insertData } = customerForm;
+      const { error } = await supabase.from('customers').insert([insertData]);
+      if (error) {
+        console.error('Error al crear cliente:', error);
+        alert('Error al crear cliente: ' + error.message);
+      } else {
+        fetchCustomers();
+        setIsCustomerModalOpen(false);
+        alert('✅ Cliente creado correctamente');
+      }
+    }
+  };
+
+  const handleDeleteCustomer = async (id: string) => {
+    if (!window.confirm('¿Estás seguro de que deseas eliminar este cliente? Esta acción no se puede deshacer.')) return;
+    
+    const { error } = await supabase.from('customers').delete().eq('id', id);
+    if (error) {
+      alert('Error al eliminar cliente: ' + error.message);
+    } else {
+      setSelectedCustomer(null);
       fetchCustomers();
-      setIsAddModalOpen(false);
-      setNewCustomer({ name: '', phone: '', address: '', credit_limit: 10000 });
+      alert('🗑️ Cliente eliminado');
     }
   };
 
@@ -281,7 +316,11 @@ export const Customers = () => {
             <Users size={28} className="text-brand-blue" />
             Clientes
           </h1>
-          <Button variant="outline" className="h-8 w-8 p-0 rounded-lg" onClick={() => setIsAddModalOpen(true)}>
+          <Button variant="outline" className="h-8 w-8 p-0 rounded-lg" onClick={() => {
+            setIsEditing(false);
+            setCustomerForm({ id: '', name: '', phone: '', cuit: '', address: '', credit_limit: 10000 });
+            setIsCustomerModalOpen(true);
+          }}>
             <Plus size={18} />
           </Button>
 
@@ -366,12 +405,30 @@ export const Customers = () => {
                  <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center text-brand-blue">
                    <Users size={32} />
                  </div>
-                 <div>
-                   <h2 className="text-3xl font-black text-slate-900">{selectedCustomer.name}</h2>
-                   <div className="flex items-center gap-4 mt-2 text-slate-500 font-medium">
-                     <span className="flex items-center gap-1"><Phone size={16} /> {selectedCustomer.phone}</span>
-                     <span className="flex items-center gap-1"><MapPin size={16} /> {selectedCustomer.address}</span>
+                 <div className="flex-1">
+                   <div className="flex justify-between items-start">
+                     <h2 className="text-3xl font-black text-slate-900">{selectedCustomer.name}</h2>
+                     <div className="flex gap-2">
+                       <Button variant="outline" className="h-8 px-3 py-0 text-xs" onClick={() => {
+                         setCustomerForm({
+                           id: selectedCustomer.id,
+                           name: selectedCustomer.name,
+                           phone: selectedCustomer.phone || '',
+                           cuit: selectedCustomer.cuit || '',
+                           address: selectedCustomer.address || '',
+                           credit_limit: selectedCustomer.credit_limit
+                         });
+                         setIsEditing(true);
+                         setIsCustomerModalOpen(true);
+                       }}>Editar</Button>
+                       <Button variant="danger" className="h-8 px-3 py-0 text-xs shadow-none" onClick={() => handleDeleteCustomer(selectedCustomer.id)}>Eliminar</Button>
+                     </div>
                    </div>
+                    <div className="flex items-center gap-4 mt-2 text-slate-500 font-medium">
+                      <span className="flex items-center gap-1"><Phone size={16} /> {selectedCustomer.phone}</span>
+                      <span className="flex items-center gap-1"><MapPin size={16} /> {selectedCustomer.address}</span>
+                      {selectedCustomer.cuit && <Badge variant="blue" className="font-mono">CUIT: {selectedCustomer.cuit}</Badge>}
+                    </div>
                  </div>
                </div>
                <div className="text-right space-y-2">
@@ -464,13 +521,13 @@ export const Customers = () => {
         )}
       </div>
 
-      {/* Add Customer Modal */}
+      {/* Add/Edit Customer Modal */}
       <AnimatePresence>
-        {isAddModalOpen && (
+        {isCustomerModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
             <Card className="w-full max-w-md p-8 relative">
               <button 
-                onClick={() => setIsAddModalOpen(false)}
+                onClick={() => setIsCustomerModalOpen(false)}
                 className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-600"
               >
                 <X size={20} />
@@ -480,16 +537,16 @@ export const Customers = () => {
                 <div className="w-10 h-10 bg-brand-blue/10 rounded-xl flex items-center justify-center text-brand-blue">
                   <Plus size={24} />
                 </div>
-                <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Nuevo Cliente</h3>
+                <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">{isEditing ? 'Editar Cliente' : 'Nuevo Cliente'}</h3>
               </div>
 
-              <form onSubmit={handleAddCustomer} className="space-y-4">
+              <form onSubmit={handleSaveCustomer} className="space-y-4">
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Nombre Completo / Razón Social</label>
                   <Input 
                     required 
-                    value={newCustomer.name}
-                    onChange={e => setNewCustomer({...newCustomer, name: e.target.value})}
+                    value={customerForm.name}
+                    onChange={e => setCustomerForm({...customerForm, name: e.target.value})}
                     placeholder="Ej: Juan Pérez" 
                   />
                 </div>
@@ -497,29 +554,39 @@ export const Customers = () => {
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Teléfono</label>
                     <Input 
-                      value={newCustomer.phone}
-                      onChange={e => setNewCustomer({...newCustomer, phone: e.target.value})}
+                      value={customerForm.phone}
+                      onChange={e => setCustomerForm({...customerForm, phone: e.target.value})}
                       placeholder="11 1234 5678" 
                     />
                   </div>
                   <div className="space-y-1.5">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">CUIT (Sólo Factura A)</label>
+                    <Input 
+                      value={customerForm.cuit}
+                      onChange={e => setCustomerForm({...customerForm, cuit: e.target.value})}
+                      placeholder="30-XXXXXXXX-X" 
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Límite de Crédito</label>
                     <Input 
                       type="number"
-                      value={newCustomer.credit_limit}
-                      onChange={e => setNewCustomer({...newCustomer, credit_limit: Number(e.target.value)})}
+                      value={customerForm.credit_limit}
+                      onChange={e => setCustomerForm({...customerForm, credit_limit: Number(e.target.value)})}
                     />
                   </div>
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Dirección / Entrega</label>
                   <Input 
-                    value={newCustomer.address}
-                    onChange={e => setNewCustomer({...newCustomer, address: e.target.value})}
+                    value={customerForm.address}
+                    onChange={e => setCustomerForm({...customerForm, address: e.target.value})}
                     placeholder="Calle 123, Localidad" 
                   />
                 </div>
-                <Button type="submit" className="w-full h-12 mt-4 font-black">CREAR CLIENTE</Button>
+                <Button type="submit" className="w-full h-12 mt-4 font-black">{isEditing ? 'GUARDAR CAMBIOS' : 'CREAR CLIENTE'}</Button>
               </form>
             </Card>
           </div>

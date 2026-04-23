@@ -42,6 +42,7 @@ export const Dashboard = () => {
     yearSales: 0
   });
   const [topProducts, setTopProducts] = useState<{name: string, quantity: number, total: number}[]>([]);
+  const [recentActivity, setRecentActivity] = useState<any[]>([]);
   const [dailyGoal] = useState(500000); // Meta diaria de ejemplo
 
   useEffect(() => {
@@ -146,6 +147,14 @@ export const Dashboard = () => {
 
     setTopProducts(topList);
 
+    // Recent Activity
+    const { data: recent } = await supabase
+      .from('sales')
+      .select('id, friendly_id, created_at, total')
+      .order('created_at', { ascending: false })
+      .limit(5);
+    setRecentActivity(recent || []);
+
     setStats({
       todaySales: todayTotal,
       todayCost: todayCost,
@@ -165,7 +174,7 @@ export const Dashboard = () => {
            <h1 className="text-4xl font-black text-slate-900 tracking-tight">¡Buen día, Líder!</h1>
            <p className="text-slate-500 font-medium mt-1 uppercase text-xs tracking-widest">Estado general del corralón • Hoy {new Date().toLocaleDateString('es-AR')}</p>
         </div>
-        <Button variant="secondary" className="bg-brand-blue shadow-premium" onClick={() => navigate('/entregas')}>
+        <Button variant="secondary" className="bg-brand-blue shadow-premium" onClick={() => navigate('/admin/entregas')}>
           <Calendar size={18} /> Ver Calendario de Entregas
         </Button>
 
@@ -228,21 +237,21 @@ export const Dashboard = () => {
             <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest">Ventas de la Semana</p>
             <h3 className="text-2xl font-black mt-1">${stats.weekSales.toLocaleString()}</h3>
             <div className="w-full bg-white/10 h-1.5 rounded-full mt-4 overflow-hidden">
-               <div className="bg-brand-blue h-full" style={{width: '65%'}} />
+               <div className="bg-brand-blue h-full transition-all duration-1000" style={{width: `${Math.min(100, (stats.weekSales / (dailyGoal * 6)) * 100)}%`}} />
             </div>
          </Card>
          <Card className="p-6 bg-slate-900 text-white border-none">
             <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest">Ventas del Mes</p>
             <h3 className="text-2xl font-black mt-1">${stats.monthSales.toLocaleString()}</h3>
             <div className="w-full bg-white/10 h-1.5 rounded-full mt-4 overflow-hidden">
-               <div className="bg-emerald-400 h-full" style={{width: '45%'}} />
+               <div className="bg-emerald-400 h-full transition-all duration-1000" style={{width: `${Math.min(100, (stats.monthSales / (dailyGoal * 25)) * 100)}%`}} />
             </div>
          </Card>
          <Card className="p-6 bg-slate-900 text-white border-none">
             <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest">Ventas del Año</p>
             <h3 className="text-2xl font-black mt-1">${stats.yearSales.toLocaleString()}</h3>
             <div className="w-full bg-white/10 h-1.5 rounded-full mt-4 overflow-hidden">
-               <div className="bg-brand-red h-full" style={{width: '80%'}} />
+               <div className="bg-brand-red h-full transition-all duration-1000" style={{width: `${Math.min(100, (stats.yearSales / (dailyGoal * 300)) * 100)}%`}} />
             </div>
          </Card>
       </div>
@@ -304,7 +313,7 @@ export const Dashboard = () => {
            <h3 className="text-xl font-black text-slate-800">Accesos Rápidos</h3>
            <div className="space-y-3">
              <Button 
-               onClick={() => navigate('/pos')}
+               onClick={() => navigate('/admin/pos')}
                className="w-full h-16 bg-slate-900 hover:bg-black rounded-2xl flex items-center justify-start px-6 gap-4"
              >
                <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center text-emerald-400">
@@ -319,7 +328,7 @@ export const Dashboard = () => {
 
 
              <Button 
-               onClick={() => navigate('/entregas')}
+               onClick={() => navigate('/admin/entregas')}
                variant="outline" className="w-full h-16 rounded-2xl flex items-center justify-start px-6 gap-4 border-slate-100 bg-slate-50/50"
              >
                <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center text-brand-blue">
@@ -327,14 +336,16 @@ export const Dashboard = () => {
                </div>
                <div className="text-left">
                  <p className="font-black text-slate-800 leading-none">Hoja de Ruta</p>
-                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">4 Entregas pendientes</p>
+                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">
+                   {stats.pendingDeliveries} {stats.pendingDeliveries === 1 ? 'Entrega pendiente' : 'Entregas pendientes'}
+                 </p>
                </div>
                <ChevronRight size={18} className="ml-auto text-slate-300" />
              </Button>
 
 
              <Button 
-               onClick={() => navigate('/productos')}
+               onClick={() => navigate('/admin/productos')}
                variant="outline" className="w-full h-16 rounded-2xl flex items-center justify-start px-6 gap-4 border-slate-100 bg-slate-50/50"
              >
                <div className="w-10 h-10 bg-brand-red/10 rounded-xl flex items-center justify-center text-brand-red">
@@ -374,13 +385,19 @@ export const Dashboard = () => {
            <div className="pt-6 border-t border-slate-100">
              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Actividad Reciente</p>
              <div className="space-y-4">
-               {[1,2,3].map(i => (
-                 <div key={i} className="flex items-center gap-3">
-                   <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                   <p className="text-sm text-slate-600 font-medium">Venta #V-7261 completada</p>
-                   <span className="text-[10px] font-bold text-slate-300 ml-auto">14:02</span>
-                 </div>
-               ))}
+               {recentActivity.length === 0 ? (
+                 <p className="text-xs text-slate-300 italic">No hay actividad reciente.</p>
+               ) : (
+                 recentActivity.map((sale: any) => (
+                   <div key={sale.id} className="flex items-center gap-3">
+                     <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                     <p className="text-sm text-slate-600 font-medium">Venta #{sale.friendly_id} completada</p>
+                     <span className="text-[10px] font-bold text-slate-300 ml-auto">
+                       {new Date(sale.created_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
+                     </span>
+                   </div>
+                 ))
+               )}
              </div>
            </div>
         </Card>
