@@ -766,7 +766,7 @@ export const Products = () => {
                   </div>
 
                   <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-3 gap-4">
                       <div className="space-y-1.5">
                         <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Costo ($)</label>
                         <Input 
@@ -774,6 +774,14 @@ export const Products = () => {
                           required
                           value={newProduct.cost}
                           onChange={e => setNewProduct({...newProduct, cost: Number(e.target.value)})}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Margen (%)</label>
+                        <Input 
+                          type="number"
+                          value={newProduct.cost > 0 ? Math.round(((newProduct.price_base - newProduct.cost) / newProduct.cost) * 100) : 0}
+                          onChange={e => setNewProduct({...newProduct, price_base: Math.round(newProduct.cost * (1 + Number(e.target.value) / 100))})}
                         />
                       </div>
                       <div className="space-y-1.5">
@@ -908,13 +916,21 @@ export const Products = () => {
                       />
                     </div>
                     
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-3 gap-4">
                       <div className="space-y-1.5">
                         <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Costo</label>
                         <Input 
                           type="number"
                           value={editingProduct.cost}
                           onChange={e => setEditingProduct({...editingProduct, cost: Number(e.target.value)})}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Margen (%)</label>
+                        <Input 
+                          type="number"
+                          value={editingProduct.cost > 0 ? Math.round(((editingProduct.price_base - editingProduct.cost) / editingProduct.cost) * 100) : 0}
+                          onChange={e => setEditingProduct({...editingProduct, price_base: Math.round(editingProduct.cost * (1 + Number(e.target.value) / 100))})}
                         />
                       </div>
                       <div className="space-y-1.5">

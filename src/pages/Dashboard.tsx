@@ -168,239 +168,164 @@ export const Dashboard = () => {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-           <h1 className="text-4xl font-black text-slate-900 tracking-tight">¡Buen día, Líder!</h1>
-           <p className="text-slate-500 font-medium mt-1 uppercase text-xs tracking-widest">Estado general del corralón • Hoy {new Date().toLocaleDateString('es-AR')}</p>
+           <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Resumen de Actividad</h1>
+           <p className="text-slate-500 font-medium text-sm mt-1">Estado general del corralón al {new Date().toLocaleDateString('es-AR')}</p>
         </div>
-        <Button variant="secondary" className="bg-brand-blue shadow-premium" onClick={() => navigate('/admin/entregas')}>
-          <Calendar size={18} /> Ver Calendario de Entregas
-        </Button>
-
+        <div className="flex gap-2">
+          <Button variant="outline" className="bg-white border-slate-200" onClick={() => navigate('/admin/productos')}>
+            <ArrowUpRight size={16} className="mr-2" /> Ingresar Stock
+          </Button>
+          <Button className="bg-brand-blue" onClick={() => navigate('/admin/pos')}>
+            <ShoppingCart size={16} className="mr-2" /> Nueva Venta
+          </Button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="p-6 relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-125 transition-transform">
-            <TrendingUp size={64} className="text-emerald-600" />
-          </div>
-          <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">Ventas del Día</p>
-          <div className="flex items-center justify-between mt-2">
-            <h3 className="text-3xl font-black text-slate-900">${stats.todaySales.toLocaleString()}</h3>
-            <div className="flex items-center gap-1 text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg text-xs font-bold">
-               <ArrowUpRight size={14} /> +14%
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="p-5 border-slate-200 shadow-sm">
+          <div className="flex justify-between items-start">
+            <div>
+              <p className="text-slate-500 font-medium text-sm">Ventas de Hoy</p>
+              <h3 className="text-2xl font-bold text-slate-800 mt-1">${stats.todaySales.toLocaleString()}</h3>
+            </div>
+            <div className="p-2 bg-slate-50 rounded-lg text-slate-400">
+              <TrendingUp size={20} />
             </div>
           </div>
         </Card>
 
-        <Card className="p-6 relative overflow-hidden group bg-brand-blue/5 border-emerald-100">
-          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-125 transition-transform text-emerald-600">
-             <TrendingUp size={64} />
-          </div>
-          <p className="text-emerald-700 font-bold text-xs uppercase tracking-widest">Utilidad Bruta Hoy</p>
-          <div className="flex items-center justify-between mt-2">
-            <h3 className="text-3xl font-black text-emerald-700">${(stats.todaySales - stats.todayCost).toLocaleString()}</h3>
-            <div className="flex items-center gap-1 text-emerald-600 bg-emerald-100 px-2 py-1 rounded-lg text-[10px] font-black uppercase">
-               MARGEN: {stats.todaySales > 0 ? (((stats.todaySales - stats.todayCost) / stats.todaySales) * 100).toFixed(1) : 0}%
+        <Card className="p-5 border-slate-200 shadow-sm">
+          <div className="flex justify-between items-start">
+            <div>
+              <p className="text-slate-500 font-medium text-sm">Utilidad Bruta Hoy</p>
+              <h3 className="text-2xl font-bold text-emerald-700 mt-1">${(stats.todaySales - stats.todayCost).toLocaleString()}</h3>
+            </div>
+            <div className="p-2 bg-emerald-50 rounded-lg text-emerald-600">
+              <Wallet size={20} />
             </div>
           </div>
         </Card>
 
-        <Card className="p-6 relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-125 transition-transform">
-            <Truck size={64} className="text-brand-red" />
-          </div>
-          <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">Pendientes Entrega</p>
-          <div className="flex items-center justify-between mt-2">
-            <h3 className="text-3xl font-black text-slate-900">{stats.pendingDeliveries}</h3>
-            <div className="flex items-center gap-1 text-brand-red bg-red-50 px-2 py-1 rounded-lg text-xs font-bold">
-               <ArrowUpRight size={14} /> 2 hoy
+        <Card className="p-5 border-slate-200 shadow-sm">
+          <div className="flex justify-between items-start">
+            <div>
+              <p className="text-slate-500 font-medium text-sm">Entregas Pendientes</p>
+              <h3 className="text-2xl font-bold text-slate-800 mt-1">{stats.pendingDeliveries}</h3>
+            </div>
+            <div className="p-2 bg-brand-blue/10 rounded-lg text-brand-blue">
+              <Truck size={20} />
             </div>
           </div>
+          {stats.pendingDeliveries > 0 && (
+            <button onClick={() => navigate('/admin/entregas')} className="text-xs text-brand-blue font-medium mt-3 hover:underline">
+              Ver hoja de ruta →
+            </button>
+          )}
         </Card>
 
-        <Card className="p-6 relative overflow-hidden group border-orange-100 bg-orange-50/10">
-          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-125 transition-transform">
-            <AlertTriangle size={64} className="text-orange-600" />
+        <Card className="p-5 border-slate-200 shadow-sm">
+          <div className="flex justify-between items-start">
+            <div>
+              <p className="text-slate-500 font-medium text-sm">Alertas de Stock</p>
+              <h3 className="text-2xl font-bold text-slate-800 mt-1">{stats.lowStock}</h3>
+            </div>
+            <div className="p-2 bg-orange-50 rounded-lg text-orange-600">
+              <AlertTriangle size={20} />
+            </div>
           </div>
-          <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">Stock Crítico</p>
-          <div className="flex items-center justify-between mt-2">
-            <h3 className="text-3xl font-black text-orange-600">{stats.lowStock}</h3>
-            <Badge variant="orange">Revisar</Badge>
-          </div>
+          {stats.lowStock > 0 && (
+             <button onClick={() => navigate('/admin/productos')} className="text-xs text-orange-600 font-medium mt-3 hover:underline">
+               Revisar inventario →
+             </button>
+          )}
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-         <Card className="p-6 bg-slate-900 text-white border-none">
-            <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest">Ventas de la Semana</p>
-            <h3 className="text-2xl font-black mt-1">${stats.weekSales.toLocaleString()}</h3>
-            <div className="w-full bg-white/10 h-1.5 rounded-full mt-4 overflow-hidden">
-               <div className="bg-brand-blue h-full transition-all duration-1000" style={{width: `${Math.min(100, (stats.weekSales / (dailyGoal * 6)) * 100)}%`}} />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Card className="lg:col-span-2 p-6 border-slate-200 shadow-sm">
+          <h3 className="text-base font-bold text-slate-800 mb-6">Histórico de Ventas (Últimos 7 Días)</h3>
+          <div className="h-[250px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+               <BarChart data={salesData}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
+                  <Tooltip 
+                    cursor={{fill: '#f8fafc'}}
+                    contentStyle={{borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)'}}
+                    formatter={(value: number) => [`$${value.toLocaleString()}`, 'Total']}
+                  />
+                  <Bar dataKey="total" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={32} />
+               </BarChart>
+            </ResponsiveContainer>
+          </div>
+          
+          <div className="grid grid-cols-3 gap-4 mt-8 pt-6 border-t border-slate-100">
+            <div>
+              <p className="text-xs text-slate-500 font-medium mb-1">Acumulado Semanal</p>
+              <p className="text-lg font-bold text-slate-800">${stats.weekSales.toLocaleString()}</p>
             </div>
-         </Card>
-         <Card className="p-6 bg-slate-900 text-white border-none">
-            <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest">Ventas del Mes</p>
-            <h3 className="text-2xl font-black mt-1">${stats.monthSales.toLocaleString()}</h3>
-            <div className="w-full bg-white/10 h-1.5 rounded-full mt-4 overflow-hidden">
-               <div className="bg-emerald-400 h-full transition-all duration-1000" style={{width: `${Math.min(100, (stats.monthSales / (dailyGoal * 25)) * 100)}%`}} />
+            <div>
+              <p className="text-xs text-slate-500 font-medium mb-1">Acumulado Mensual</p>
+              <p className="text-lg font-bold text-slate-800">${stats.monthSales.toLocaleString()}</p>
             </div>
-         </Card>
-         <Card className="p-6 bg-slate-900 text-white border-none">
-            <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest">Ventas del Año</p>
-            <h3 className="text-2xl font-black mt-1">${stats.yearSales.toLocaleString()}</h3>
-            <div className="w-full bg-white/10 h-1.5 rounded-full mt-4 overflow-hidden">
-               <div className="bg-brand-red h-full transition-all duration-1000" style={{width: `${Math.min(100, (stats.yearSales / (dailyGoal * 300)) * 100)}%`}} />
+            <div>
+              <p className="text-xs text-slate-500 font-medium mb-1">Acumulado Anual</p>
+              <p className="text-lg font-bold text-slate-800">${stats.yearSales.toLocaleString()}</p>
             </div>
-         </Card>
-      </div>
+          </div>
+        </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <Card className="lg:col-span-2 p-8">
-            <div className="flex justify-between items-start mb-10">
-              <div>
-                <h3 className="text-2xl font-black text-slate-800 tracking-tight">Estado de Objetivos</h3>
-                <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">¿Cómo vamos hoy comparado con la meta?</p>
-              </div>
-              <div className={cn(
-                "px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg transition-all",
-                stats.todaySales >= dailyGoal 
-                  ? "bg-emerald-500 text-white shadow-emerald-500/20" 
-                  : stats.todaySales >= (dailyGoal * 0.7)
-                    ? "bg-amber-500 text-white shadow-amber-500/20"
-                    : "bg-brand-red text-white shadow-red-500/20"
-              )}>
-                {stats.todaySales >= dailyGoal ? '¡Excelente!' : stats.todaySales >= (dailyGoal * 0.7) ? 'Cerca de la Meta' : 'Bajo Rendimiento'}
-              </div>
-            </div>
+        <div className="space-y-6">
+          <Card className="p-6 border-slate-200 shadow-sm">
+             <div className="flex items-center justify-between mb-4">
+               <h3 className="text-base font-bold text-slate-800">Últimas Operaciones</h3>
+               <button onClick={() => navigate('/admin/reportes')} className="text-xs text-brand-blue hover:underline font-medium">Ver todo</button>
+             </div>
+             
+             <div className="space-y-0">
+               {recentActivity.length === 0 ? (
+                 <p className="text-sm text-slate-500 py-4 text-center">No hay actividad reciente.</p>
+               ) : (
+                 recentActivity.map((sale: any, idx: number) => (
+                   <div key={sale.id} className={cn(
+                     "flex items-center justify-between py-3",
+                     idx !== recentActivity.length - 1 && "border-b border-slate-100"
+                   )}>
+                     <div>
+                       <p className="text-sm font-semibold text-slate-800">Venta #{sale.friendly_id}</p>
+                       <p className="text-xs text-slate-500 mt-0.5">
+                         {new Date(sale.created_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
+                       </p>
+                     </div>
+                     <span className="text-sm font-bold text-slate-800">${sale.total.toLocaleString()}</span>
+                   </div>
+                 ))
+               )}
+             </div>
+          </Card>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-               <div className="flex flex-col items-center justify-center p-8 bg-slate-50 rounded-[32px] border border-slate-100 relative overflow-hidden group">
-                  <div className="relative z-10 text-center">
-                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Progreso del Día</p>
-                     <p className="text-5xl font-black text-slate-900 leading-none">
-                        {Math.min(100, Math.round((stats.todaySales / dailyGoal) * 100))}%
-                     </p>
-                     <p className="text-[10px] font-bold text-slate-400 mt-4 uppercase">Meta: ${dailyGoal.toLocaleString()}</p>
-                  </div>
-                  {/* Progress Ring Background */}
-                  <div className="absolute inset-0 flex items-center justify-center opacity-[0.03]">
-                     <TrendingUp size={200} />
-                  </div>
-               </div>
-
-               <div className="space-y-6">
-                  <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Histórico 7 Días</p>
-                  <div className="h-48 w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                       <BarChart data={salesData}>
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                          <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10, fontWeight: '700'}} />
-                          <Tooltip 
-                            cursor={{fill: '#f1f5f9'}}
-                            contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)'}}
-                          />
-                          <Bar dataKey="total" fill="#1D1D4B" radius={[6, 6, 0, 0]} barSize={20} />
-                       </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-               </div>
-            </div>
-         </Card>
-
-        <Card className="p-8 space-y-6">
-           <h3 className="text-xl font-black text-slate-800">Accesos Rápidos</h3>
-           <div className="space-y-3">
-             <Button 
-               onClick={() => navigate('/admin/pos')}
-               className="w-full h-16 bg-slate-900 hover:bg-black rounded-2xl flex items-center justify-start px-6 gap-4"
-             >
-               <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center text-emerald-400">
-                 <ShoppingCart size={20} />
-               </div>
-               <div className="text-left">
-                 <p className="font-black text-white leading-none">Nueva Venta</p>
-                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Lanzar POS rápido</p>
-               </div>
-               <ChevronRight size={18} className="ml-auto text-slate-600" />
-             </Button>
-
-
-             <Button 
-               onClick={() => navigate('/admin/entregas')}
-               variant="outline" className="w-full h-16 rounded-2xl flex items-center justify-start px-6 gap-4 border-slate-100 bg-slate-50/50"
-             >
-               <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center text-brand-blue">
-                 <Truck size={20} />
-               </div>
-               <div className="text-left">
-                 <p className="font-black text-slate-800 leading-none">Hoja de Ruta</p>
-                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">
-                   {stats.pendingDeliveries} {stats.pendingDeliveries === 1 ? 'Entrega pendiente' : 'Entregas pendientes'}
-                 </p>
-               </div>
-               <ChevronRight size={18} className="ml-auto text-slate-300" />
-             </Button>
-
-
-             <Button 
-               onClick={() => navigate('/admin/productos')}
-               variant="outline" className="w-full h-16 rounded-2xl flex items-center justify-start px-6 gap-4 border-slate-100 bg-slate-50/50"
-             >
-               <div className="w-10 h-10 bg-brand-red/10 rounded-xl flex items-center justify-center text-brand-red">
-                 <ArrowUpRight size={20} />
-               </div>
-               <div className="text-left">
-                 <p className="font-black text-slate-800 leading-none">Carga Express</p>
-                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Reponer stock rápido</p>
-               </div>
-               <ChevronRight size={18} className="ml-auto text-slate-300" />
-             </Button>
-
-           </div>
-
-           <div className="pt-6 border-t border-slate-100">
-             <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Productos más vendidos</p>
+          <Card className="p-6 border-slate-200 shadow-sm">
+             <h3 className="text-base font-bold text-slate-800 mb-4">Productos más vendidos</h3>
              <div className="space-y-4">
                {topProducts.length === 0 ? (
-                 <p className="text-xs text-slate-300 italic">No hay datos de ventas aún.</p>
+                 <p className="text-sm text-slate-500 text-center py-2">Sin datos suficientes.</p>
                ) : (
                  topProducts.map((p, i) => (
-                   <div key={i} className="flex items-center gap-3">
-                     <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-xs font-black text-slate-400">
-                       {i + 1}
+                   <div key={i} className="flex items-center justify-between">
+                     <div className="flex items-center gap-3 overflow-hidden">
+                       <span className="text-xs font-bold text-slate-400 w-4">{i + 1}.</span>
+                       <p className="text-sm text-slate-700 font-medium truncate">{p.name}</p>
                      </div>
-                     <div className="flex-1">
-                       <p className="text-sm text-slate-700 font-bold truncate max-w-[150px]">{p.name}</p>
-                       <p className="text-[10px] text-slate-400 font-bold uppercase">{p.quantity} unidades</p>
-                     </div>
-                     <span className="text-xs font-black text-brand-blue">${p.total.toLocaleString()}</span>
+                     <span className="text-xs font-semibold text-slate-500 whitespace-nowrap ml-2">{p.quantity} ud.</span>
                    </div>
                  ))
                )}
              </div>
-           </div>
-
-           <div className="pt-6 border-t border-slate-100">
-             <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Actividad Reciente</p>
-             <div className="space-y-4">
-               {recentActivity.length === 0 ? (
-                 <p className="text-xs text-slate-300 italic">No hay actividad reciente.</p>
-               ) : (
-                 recentActivity.map((sale: any) => (
-                   <div key={sale.id} className="flex items-center gap-3">
-                     <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                     <p className="text-sm text-slate-600 font-medium">Venta #{sale.friendly_id} completada</p>
-                     <span className="text-[10px] font-bold text-slate-300 ml-auto">
-                       {new Date(sale.created_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
-                     </span>
-                   </div>
-                 ))
-               )}
-             </div>
-           </div>
-        </Card>
+          </Card>
+        </div>
       </div>
     </div>
   );
