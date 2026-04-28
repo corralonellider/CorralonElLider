@@ -40,6 +40,15 @@ interface Customer {
   balance?: number;
 }
 
+const getAddresses = (addressString: string | undefined | null): string[] => {
+  if (!addressString) return [];
+  try {
+     const parsed = JSON.parse(addressString);
+     if (Array.isArray(parsed)) return parsed;
+  } catch (e) {}
+  return [addressString];
+};
+
 export const Customers = () => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
@@ -49,6 +58,8 @@ export const Customers = () => {
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [customerForm, setCustomerForm] = useState({ id: '', name: '', phone: '', cuit: '', address: '', credit_limit: 10000 });
+  const [multipleAddresses, setMultipleAddresses] = useState<string[]>([]);
+  const [newAddressInput, setNewAddressInput] = useState('');
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState(0);
   const [paymentDescription, setPaymentDescription] = useState('Pago de cuenta');
@@ -76,8 +87,18 @@ export const Customers = () => {
 
   const handleSaveCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Convert multiple addresses back to string
+    let finalAddress = '';
+    if (multipleAddresses.length > 0) {
+      if (multipleAddresses.length === 1) finalAddress = multipleAddresses[0];
+      else finalAddress = JSON.stringify(multipleAddresses);
+    }
+
+    const payload = { ...customerForm, address: finalAddress };
+
     if (isEditing) {
-      const { id, ...updateData } = customerForm;
+      const { id, ...updateData } = payload;
       const { error } = await supabase.from('customers').update(updateData).eq('id', id);
       if (error) {
         console.error('Error al actualizar cliente:', error);
@@ -85,14 +106,13 @@ export const Customers = () => {
       } else {
         fetchCustomers();
         setIsCustomerModalOpen(false);
-        // Update selected customer if we are viewing it
         if (selectedCustomer?.id === id) {
            setSelectedCustomer({ ...selectedCustomer, ...updateData });
         }
         alert('✅ Cliente actualizado correctamente');
       }
     } else {
-      const { id, ...insertData } = customerForm;
+      const { id, ...insertData } = payload;
       const { error } = await supabase.from('customers').insert([insertData]);
       if (error) {
         console.error('Error al crear cliente:', error);
@@ -319,6 +339,8 @@ export const Customers = () => {
           <Button variant="outline" className="h-8 w-8 p-0 rounded-lg" onClick={() => {
             setIsEditing(false);
             setCustomerForm({ id: '', name: '', phone: '', cuit: '', address: '', credit_limit: 10000 });
+            setMultipleAddresses([]);
+            setNewAddressInput('');
             setIsCustomerModalOpen(true);
           }}>
             <Plus size={18} />
@@ -418,16 +440,29 @@ export const Customers = () => {
                            address: selectedCustomer.address || '',
                            credit_limit: selectedCustomer.credit_limit
                          });
+                         setMultipleAddresses(getAddresses(selectedCustomer.address));
+                         setNewAddressInput('');
                          setIsEditing(true);
                          setIsCustomerModalOpen(true);
                        }}>Editar</Button>
                        <Button variant="danger" className="h-8 px-3 py-0 text-xs shadow-none" onClick={() => handleDeleteCustomer(selectedCustomer.id)}>Eliminar</Button>
                      </div>
                    </div>
-                    <div className="flex items-center gap-4 mt-2 text-slate-500 font-medium">
+                     <div className="flex items-center gap-4 mt-2 text-slate-500 font-medium text-sm flex-wrap">
                       <span className="flex items-center gap-1"><Phone size={16} /> {selectedCustomer.phone}</span>
-                      <span className="flex items-center gap-1"><MapPin size={16} /> {selectedCustomer.address}</span>
-                      {selectedCustomer.cuit && <Badge variant="blue" className="font-mono">CUIT: {selectedCustomer.cuit}</Badge>}
+                      <span className="flex items-start gap-1">
+                        <MapPin size={16} className="mt-0.5" /> 
+                        <div className="flex flex-col">
+                          {getAddresses(selectedCustomer.address).length > 0 ? (
+                             getAddresses(selectedCustomer.address).map((addr, i) => (
+                               <span key={i}>{addr}</span>
+                             ))
+                          ) : (
+                             <span>-</span>
+                          )}
+                        </div>
+                      </span>
+                      {selectedCustomer.cuit && <Badge variant="blue" className="font-mono mt-1">CUIT: {selectedCustomer.cuit}</Badge>}
                     </div>
                  </div>
                </div>
@@ -578,13 +613,48 @@ export const Customers = () => {
                     />
                   </div>
                 </div>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Dirección / Entrega</label>
-                  <Input 
-                    value={customerForm.address}
-                    onChange={e => setCustomerForm({...customerForm, address: e.target.value})}
-                    placeholder="Calle 123, Localidad" 
-                  />
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Direcciones de Entrega (Obras)</label>
+                  <div className="flex flex-col gap-2 bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                     {multipleAddresses.map((addr, idx) => (
+                        <div key={idx} className="flex justify-between items-center bg-white p-2 px-3 rounded-xl shadow-sm border border-slate-100 text-sm">
+                           <span>{addr}</span>
+                           <button type="button" onClick={() => setMultipleAddresses(multipleAddresses.filter((_, i) => i !== idx))} className="text-rose-500 hover:text-rose-700">
+                             <X size={16} />
+                           </button>
+                        </div>
+                     ))}
+                     
+                     <div className="flex gap-2 mt-1">
+                       <Input 
+                         value={newAddressInput}
+                         onChange={e => setNewAddressInput(e.target.value)}
+                         placeholder="Ej: Obra Barrio Cerrado Lote 45..." 
+                         className="flex-1 text-sm bg-white"
+                         onKeyDown={(e) => {
+                           if (e.key === 'Enter') {
+                             e.preventDefault();
+                             if (newAddressInput.trim()) {
+                               setMultipleAddresses([...multipleAddresses, newAddressInput.trim()]);
+                               setNewAddressInput('');
+                             }
+                           }
+                         }}
+                       />
+                       <Button 
+                         type="button"
+                         variant="secondary"
+                         onClick={() => {
+                           if (newAddressInput.trim()) {
+                             setMultipleAddresses([...multipleAddresses, newAddressInput.trim()]);
+                             setNewAddressInput('');
+                           }
+                         }}
+                       >
+                         Añadir
+                       </Button>
+                     </div>
+                  </div>
                 </div>
                 <Button type="submit" className="w-full h-12 mt-4 font-black">{isEditing ? 'GUARDAR CAMBIOS' : 'CREAR CLIENTE'}</Button>
               </form>

@@ -17,7 +17,9 @@ import {
   ChevronDown,
   X,
   Camera,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 
@@ -33,6 +35,7 @@ interface Product {
   category: { name: string } | null;
   category_id?: string;
   image_url?: string;
+  visible_web?: boolean;
   inventory?: { stock_current: number; stock_min: number };
 }
 
@@ -256,6 +259,19 @@ export const Products = () => {
     
     const { error } = await supabase.from('products').delete().eq('id', id);
     if (!error) fetchProducts();
+  };
+
+  const handleToggleVisibility = async (id: string, currentStatus: boolean) => {
+    const { error } = await supabase
+      .from('products')
+      .update({ visible_web: !currentStatus })
+      .eq('id', id);
+
+    if (error) {
+      alert('Error al cambiar visibilidad: ' + error.message);
+    } else {
+      fetchProducts();
+    }
   };
 
   const handleQuickAddCategory = async () => {
@@ -620,6 +636,14 @@ export const Products = () => {
                          title="Eliminar"
                        >
                         <Trash2 size={18} />
+                      </button>
+
+                      <button
+                        onClick={() => handleToggleVisibility(p.id, p.visible_web || false)}
+                        className={`p-2 hover:bg-white rounded-lg transition-all shadow-sm ${p.visible_web ? 'text-emerald-500 hover:text-emerald-600' : 'text-slate-300 hover:text-emerald-500'}`}
+                        title={p.visible_web ? 'Ocultar en tienda' : 'Mostrar en tienda'}
+                      >
+                        {p.visible_web ? <Eye size={18} /> : <EyeOff size={18} />}
                       </button>
                     </div>
                   </td>

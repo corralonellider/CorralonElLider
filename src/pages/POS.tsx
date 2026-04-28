@@ -25,7 +25,17 @@ interface Customer {
   price_list_id: string;
   phone?: string;
   cuit?: string;
+  address?: string;
 }
+
+const getAddresses = (addressString: string | undefined | null): string[] => {
+  if (!addressString) return [];
+  try {
+     const parsed = JSON.parse(addressString);
+     if (Array.isArray(parsed)) return parsed;
+  } catch (e) {}
+  return [addressString];
+};
 
 export const POS = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -63,7 +73,7 @@ export const POS = () => {
   }, [debouncedSearch]);
 
   const fetchCustomers = async () => {
-    const { data } = await supabase.from('customers').select('id, name, price_list_id, phone, cuit').limit(50);
+    const { data } = await supabase.from('customers').select('id, name, price_list_id, phone, cuit, address').limit(50);
     if (data) setCustomers(data);
   };
 
@@ -532,12 +542,29 @@ export const POS = () => {
                   </div>
                </div>
                {deliveryMode === 'ENTREGA' && (
-                 <Input 
-                   placeholder="Dirección de entrega..." 
-                   className="text-xs h-8"
-                   value={deliveryAddress}
-                   onChange={(e) => setDeliveryAddress(e.target.value)}
-                 />
+                 <div className="flex flex-col gap-2">
+                   {selectedCustomer && getAddresses(selectedCustomer.address).length > 0 && (
+                      <select 
+                        className="w-full h-8 text-[10px] font-black bg-slate-50 border border-slate-200 rounded-lg px-2 outline-none"
+                        onChange={(e) => {
+                          if (e.target.value !== 'NEW') setDeliveryAddress(e.target.value);
+                          else setDeliveryAddress('');
+                        }}
+                      >
+                         <option value="">Seleccionar domicilio guardado...</option>
+                         {getAddresses(selectedCustomer.address).map((a, idx) => (
+                           <option key={idx} value={a}>{a}</option>
+                         ))}
+                         <option value="NEW">+ Otra dirección...</option>
+                      </select>
+                   )}
+                   <Input 
+                     placeholder="Escribir dirección de entrega..." 
+                     className="text-xs h-8"
+                     value={deliveryAddress}
+                     onChange={(e) => setDeliveryAddress(e.target.value)}
+                   />
+                 </div>
                )}
             </div>
             
