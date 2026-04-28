@@ -50,30 +50,11 @@ export const generateTicketHTML = (saleResult: any, isCreditNote: boolean = fals
     const cbteStr = cbteNroToUse ? String(cbteNroToUse).padStart(8, '0') : (saleResult.order_number || String(saleResult.id).slice(0,8));
     const ptoVtaView = String(saleResult.afip_pto_vta || 5).padStart(5, '0');
 
-    return `
-      <html>
-        <head>
-          <title>Comprobante ${cbteStr} - El Líder</title>
-          <style>
-            body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 0; margin: 0; color: black; width: 100%; max-width: 80mm; font-size: 11px; }
-            .ticket-container { padding: 5px; }
-            .header-info { text-align: center; border-bottom: 2px dashed black; padding-bottom: 10px; margin-bottom: 5px; }
-            .header-info h2 { margin: 2px 0; font-size: 16px; font-weight: 900; }
-            .logo-letter { border: 2px solid black; font-size: 24px; font-weight: bold; width: 35px; height: 35px; margin: 0 auto; display: flex; align-items: center; justify-content: center; margin-bottom: 5px; }
-            .doc-title { font-size: 13px; font-weight: bold; text-align: center; margin-bottom: 5px; text-transform: uppercase; }
-            .company-details, .customer-details { font-size: 10px; margin-bottom: 5px; }
-            table { width: 100%; font-size: 11px; margin: 5px 0; border-collapse: collapse; }
-            th { text-align: left; border-bottom: 1px solid black; padding-bottom: 3px; font-size: 10px;}
-            td { padding-top: 3px; vertical-align: top;}
-            .total-row { font-size: 14px; font-weight: bold; text-align: right; border-top: 2px solid black; padding-top: 5px; margin-top: 5px; }
-            .afip-footer { margin-top: 15px; border-top: 1px dashed black; padding-top: 10px; text-align: center; }
-            .cae-box { text-align: left; font-size: 11px; margin-bottom: 10px; font-weight: bold; }
-            .qr-container { text-align: center; margin: 5px 0; }
-            .afip-logo { font-size: 16px; font-weight: 900; font-style: italic; margin-bottom: 2px; }
-          </style>
-        </head>
-        <body>
+    const generateCopy = (copyLabel: string) => `
           <div class="ticket-container">
+            <div style="text-align: center; font-size: 11px; font-weight: 900; margin-bottom: 10px; border-bottom: 1px solid black; padding-bottom: 2px;">
+              DOCUMENTO ${copyLabel}
+            </div>
             <div class="header-info">
               <div class="logo-letter">${docLetter}</div>
               <div class="doc-title">${docName}</div>
@@ -135,6 +116,39 @@ export const generateTicketHTML = (saleResult: any, isCreditNote: boolean = fals
               ¡Gracias por su compra!
             </div>
           </div>
+    `;
+
+    return `
+      <html>
+        <head>
+          <title>Comprobante ${cbteStr} - El Líder</title>
+          <style>
+            body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 0; margin: 0; color: black; width: 100%; max-width: 80mm; font-size: 11px; }
+            .ticket-container { padding: 5px; }
+            .header-info { text-align: center; border-bottom: 2px dashed black; padding-bottom: 10px; margin-bottom: 5px; }
+            .header-info h2 { margin: 2px 0; font-size: 16px; font-weight: 900; }
+            .logo-letter { border: 2px solid black; font-size: 24px; font-weight: bold; width: 35px; height: 35px; margin: 0 auto; display: flex; align-items: center; justify-content: center; margin-bottom: 5px; }
+            .doc-title { font-size: 13px; font-weight: bold; text-align: center; margin-bottom: 5px; text-transform: uppercase; }
+            .company-details, .customer-details { font-size: 10px; margin-bottom: 5px; }
+            table { width: 100%; font-size: 11px; margin: 5px 0; border-collapse: collapse; }
+            th { text-align: left; border-bottom: 1px solid black; padding-bottom: 3px; font-size: 10px;}
+            td { padding-top: 3px; vertical-align: top;}
+            .total-row { font-size: 14px; font-weight: bold; text-align: right; border-top: 2px solid black; padding-top: 5px; margin-top: 5px; }
+            .afip-footer { margin-top: 15px; border-top: 1px dashed black; padding-top: 10px; text-align: center; }
+            .cae-box { text-align: left; font-size: 11px; margin-bottom: 10px; font-weight: bold; }
+            .qr-container { text-align: center; margin: 5px 0; }
+            .afip-logo { font-size: 16px; font-weight: 900; font-style: italic; margin-bottom: 2px; }
+            @media print {
+              .page-break { page-break-after: always; }
+            }
+          </style>
+        </head>
+        <body>
+          ${generateCopy('ORIGINAL')}
+          
+          <div class="page-break" style="border-bottom: 1px dashed black; margin: 30px 0;"></div>
+          
+          ${generateCopy('DUPLICADO')}
         </body>
       </html>
     `;
