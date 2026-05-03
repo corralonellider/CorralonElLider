@@ -269,8 +269,8 @@ export const PublicShowcase = () => {
         <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-4 gap-12 relative z-10">
           <div className="space-y-6">
             <div className="flex flex-col gap-1">
-               <h1 className="text-3xl font-black tracking-tight text-white uppercase">El Líder<span className="text-brand-red">.</span></h1>
-               <p className="text-[10px] font-bold text-brand-red tracking-[0.3em] uppercase">Materiales & Arquitectura</p>
+              <h1 className="text-3xl font-black tracking-tight text-white uppercase">El Líder<span className="text-brand-red">.</span></h1>
+              <p className="text-[10px] font-bold text-brand-red tracking-[0.3em] uppercase">Materiales & Arquitectura</p>
             </div>
             <p className="text-slate-400 text-sm font-medium leading-relaxed">
               Servicio líder en materiales para la construcción. Abastecemos a vecinos, profesionales y grandes obras con la misma dedicación.
@@ -389,7 +389,25 @@ export const PublicShowcase = () => {
                             onClick={() => updateQty(item.product.id, -1)}
                             className="px-3 hover:bg-slate-50 text-slate-400 border-r border-slate-100"
                           ><Minus size={14} /></button>
-                          <span className="w-10 text-center font-black text-sm">{item.qty}</span>
+                          <input
+                            type="number"
+                            min="1"
+                            value={item.qty || ''}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value);
+                              setCart(prev => prev.map(i =>
+                                i.product.id === item.product.id
+                                  ? { ...i, qty: isNaN(val) ? 0 : val }
+                                  : i
+                              ));
+                            }}
+                            onBlur={(e) => {
+                              if (!item.qty || item.qty < 1) {
+                                setCart(prev => prev.map(i => i.product.id === item.product.id ? { ...i, qty: 1 } : i));
+                              }
+                            }}
+                            className="w-12 text-center font-black text-sm outline-none bg-transparent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          />
                           <button
                             onClick={() => updateQty(item.product.id, 1)}
                             className="px-3 hover:bg-slate-50 text-brand-red border-l border-slate-100"

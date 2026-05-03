@@ -76,6 +76,19 @@ CREATE TABLE IF NOT EXISTS customers (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- 6.1 Direcciones Múltiples de Clientes (Constructoras/Obras)
+CREATE TABLE IF NOT EXISTS customer_addresses (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  customer_id UUID REFERENCES customers(id) ON DELETE CASCADE,
+  address TEXT NOT NULL,
+  city TEXT,
+  state TEXT,
+  zip_code TEXT,
+  is_default BOOLEAN DEFAULT false,
+  notes TEXT, -- Ej: "Obra Edificio Sur", "Horario de recepción 8 a 14hs"
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- 7. Inventario
 CREATE TABLE IF NOT EXISTS inventory (
   product_id UUID PRIMARY KEY REFERENCES products(id) ON DELETE CASCADE,

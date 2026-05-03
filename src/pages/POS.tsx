@@ -57,6 +57,7 @@ export const POS = () => {
   const [paymentMethod, setPaymentMethod] = useState('EFECTIVO');
   const [deliveryMode, setDeliveryMode] = useState<'MOSTRADOR' | 'ENTREGA'>('MOSTRADOR');
   const [deliveryAddress, setDeliveryAddress] = useState('');
+  const [saleNotes, setSaleNotes] = useState('');
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search), 500);
@@ -178,7 +179,8 @@ export const POS = () => {
     const insertData: any = {
       customer_id: selectedCustomer?.id || null,
       total,
-      document_type: documentType
+      document_type: documentType,
+      notes: saleNotes.trim() ? saleNotes.trim() : null
     };
     
     // Llamar a AFIP si es factura y hay CUIT Emisor
@@ -330,6 +332,7 @@ export const POS = () => {
     setLoading(false);
     setIsSuccess(true);
     setCart([]);
+    setSaleNotes('');
     setTimeout(() => {
       if (!isQuote) setIsSuccess(false);
     }, 10000); // 10s wait for Success view
@@ -567,6 +570,19 @@ export const POS = () => {
                    />
                  </div>
                )}
+            </div>
+            
+            <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 space-y-2">
+               <label className="text-[10px] font-black uppercase text-slate-400 flex items-center gap-1">
+                 <MessageCircle size={12} /> Observaciones
+               </label>
+               <textarea 
+                 placeholder="Ej: retirar 1 bolsón vacío, entregar viernes por la tarde..."
+                 className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-medium outline-none focus:border-brand-blue resize-none"
+                 rows={2}
+                 value={saleNotes}
+                 onChange={(e) => setSaleNotes(e.target.value)}
+               />
             </div>
             
             <div className="grid grid-cols-2 gap-3">
