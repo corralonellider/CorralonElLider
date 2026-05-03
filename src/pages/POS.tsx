@@ -193,7 +193,8 @@ export const POS = () => {
       }
 
       try {
-        const afipResponse = await fetch('http://localhost:3002/api/afip/invoice', {
+        const API_URL = import.meta.env.PROD ? '' : 'http://localhost:3002';
+        const afipResponse = await fetch(`${API_URL}/api/afip/invoice`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

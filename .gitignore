@@ -4,9 +4,9 @@ dist/
 coverage/
 .DS_Store
 *.log
-.env*
+# .env*
 !.env.example
 
 # Certificados AFIP
-arca/*.crt
-arca/*.key
+# arca/*.crt
+# arca/*.key

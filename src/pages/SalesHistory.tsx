@@ -57,7 +57,8 @@ export const SalesHistory = ({ isTab }: { isTab?: boolean }) => {
 
         setLoading(true);
         try {
-            const response = await fetch('http://localhost:3002/api/afip/credit-note', {
+            const API_URL = import.meta.env.PROD ? '' : 'http://localhost:3002';
+            const response = await fetch(`${API_URL}/api/afip/credit-note`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

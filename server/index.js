@@ -39,19 +39,28 @@ app.post('/api/afip/invoice', async (req, res) => {
       return res.status(400).json({ success: false, error: 'cuit_emisor inválido' });
     }
 
-    // Leer el contenido de los certificados (Requerido para Afip SDK v1.0+)
-    const certPath = path.join(__dirname, '..', 'arca', `cert-${cleanCuit}.crt`);
-    const keyPath = path.join(__dirname, '..', 'arca', `key-${cleanCuit}.key`);
+    let cert, key;
+    
+    // Si estamos en Vercel, leer de las variables de entorno si existen
+    if (process.env.AFIP_CERT && process.env.AFIP_KEY) {
+      cert = Buffer.from(process.env.AFIP_CERT, 'base64').toString('utf-8');
+      key = Buffer.from(process.env.AFIP_KEY, 'base64').toString('utf-8');
+    } else {
+      // Leer el contenido de los certificados desde disco local
+      // En Vercel process.cwd() apunta a la raíz del proyecto
+      const certPath = path.join(process.cwd(), 'arca', `cert-${cleanCuit}.crt`);
+      const keyPath = path.join(process.cwd(), 'arca', `key-${cleanCuit}.key`);
 
-    if (!fs.existsSync(certPath) || !fs.existsSync(keyPath)) {
-      return res.status(404).json({ 
-        success: false, 
-        error: `No se encontraron certificados para el CUIT ${cleanCuit} en la carpeta /arca/` 
-      });
+      if (!fs.existsSync(certPath) || !fs.existsSync(keyPath)) {
+        return res.status(404).json({ 
+          success: false, 
+          error: `No se encontraron certificados para el CUIT ${cleanCuit} ni variables de entorno configuradas` 
+        });
+      }
+
+      cert = fs.readFileSync(certPath, { encoding: 'utf8' });
+      key = fs.readFileSync(keyPath, { encoding: 'utf8' });
     }
-
-    const cert = fs.readFileSync(certPath, { encoding: 'utf8' });
-    const key = fs.readFileSync(keyPath, { encoding: 'utf8' });
 
     // Initialize AFIP SDK dynamically for this CUIT
     const afip = new Afip({
@@ -162,15 +171,21 @@ app.post('/api/afip/credit-note', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Tipo de comprobante original no soportado para Nota de Crédito' });
     }
 
-    const certPath = path.join(__dirname, '..', 'arca', `cert-${cleanCuit}.crt`);
-    const keyPath = path.join(__dirname, '..', 'arca', `key-${cleanCuit}.key`);
+    let cert, key;
+    if (process.env.AFIP_CERT && process.env.AFIP_KEY) {
+      cert = Buffer.from(process.env.AFIP_CERT, 'base64').toString('utf-8');
+      key = Buffer.from(process.env.AFIP_KEY, 'base64').toString('utf-8');
+    } else {
+      const certPath = path.join(process.cwd(), 'arca', `cert-${cleanCuit}.crt`);
+      const keyPath = path.join(process.cwd(), 'arca', `key-${cleanCuit}.key`);
 
-    if (!fs.existsSync(certPath) || !fs.existsSync(keyPath)) {
-      return res.status(404).json({ success: false, error: 'No se encontraron certificados para este CUIT' });
+      if (!fs.existsSync(certPath) || !fs.existsSync(keyPath)) {
+        return res.status(404).json({ success: false, error: 'No se encontraron certificados para este CUIT' });
+      }
+
+      cert = fs.readFileSync(certPath, { encoding: 'utf8' });
+      key = fs.readFileSync(keyPath, { encoding: 'utf8' });
     }
-
-    const cert = fs.readFileSync(certPath, { encoding: 'utf8' });
-    const key = fs.readFileSync(keyPath, { encoding: 'utf8' });
 
     const afip = new Afip({
       CUIT: parseInt(cleanCuit),
@@ -249,6 +264,12 @@ app.post('/api/afip/credit-note', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`AFIP Intermediary Server running on http://localhost:${PORT}`);
-});
+// Export the app for Vercel serverless functions
+export default app;
+
+// Solo inicia el servidor localmente si NO estamos en Vercel
+if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`AFIP Intermediary Server running on http://localhost:${PORT}`);
+  });
+}
