@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { createPortal } from 'react-dom';
 import { Card, Button, Badge, Input } from '../components/ui';
 import { Search, ShoppingCart, Users, Plus, Minus, X, MessageCircle, FileText, CheckCircle2, CreditCard, Banknote } from 'lucide-react';
 import { cn } from '../components/ui';
@@ -26,15 +27,16 @@ interface Customer {
   phone?: string;
   cuit?: string;
   address?: string;
+  customer_addresses?: { address: string; notes?: string }[];
 }
 
-const getAddresses = (addressString: string | undefined | null): string[] => {
-  if (!addressString) return [];
-  try {
-     const parsed = JSON.parse(addressString);
-     if (Array.isArray(parsed)) return parsed;
-  } catch (e) {}
-  return [addressString];
+const getAddresses = (customer: Customer | null): { address: string; notes: string }[] => {
+  if (!customer) return [];
+  const fromTable = customer.customer_addresses || [];
+  if (fromTable.length > 0) return fromTable.map(a => ({ address: a.address, notes: a.notes || 'Obra' }));
+  
+  if (customer.address) return [{ address: customer.address, notes: 'Principal' }];
+  return [];
 };
 
 export const POS = () => {
@@ -74,7 +76,10 @@ export const POS = () => {
   }, [debouncedSearch]);
 
   const fetchCustomers = async () => {
-    const { data } = await supabase.from('customers').select('id, name, price_list_id, phone, cuit, address').limit(50);
+    const { data } = await supabase
+      .from('customers')
+      .select('id, name, price_list_id, phone, cuit, address, customer_addresses(address, notes)')
+      .limit(50);
     if (data) setCustomers(data);
   };
 
@@ -321,23 +326,36 @@ export const POS = () => {
       }
 
       // 4. Delivery creation if requested
-      if (deliveryMode === 'ENTREGA') {
+      if (deliveryMode === 'ENTREGA' && deliveryAddress) {
         await supabase.from('deliveries').insert([{
            sale_id: entryId,
            status: 'PENDIENTE',
-           address: deliveryAddress || 'Consultar con cliente',
+           address: deliveryAddress,
            scheduled_date: new Date(Date.now() + 86400000).toISOString(), // Tomorrow default
            tracking_notes: `Venta #${friendlyId} - Entregar con urgencia.`
         }]);
+
+        // Save for future use if it's a new address for this customer
+        if (selectedCustomer) {
+           const existing = getAddresses(selectedCustomer).some(a => a.address.toLowerCase().trim() === deliveryAddress.toLowerCase().trim());
+           if (!existing) {
+              await supabase.from('customer_addresses').insert({
+                 customer_id: selectedCustomer.id,
+                 address: deliveryAddress,
+                 notes: 'Obra (Auto-guardado)'
+              });
+           }
+        }
       }
     }
 
+    fetchCustomers(); // Refresh address lists for next sale
     setLoading(false);
     setIsSuccess(true);
     setCart([]);
     setSaleNotes('');
     setTimeout(() => {
-      if (!isQuote) setIsSuccess(false);
+      setIsSuccess(false);
     }, 10000); // 10s wait for Success view
   };
 
@@ -452,7 +470,7 @@ export const POS = () => {
              <span>Cliente</span>
           </div>
           <select 
-            className="w-full input-standard text-sm cursor-pointer relative z-50"
+            className="w-full input-standard text-sm cursor-pointer"
             value={selectedCustomer?.id || ""}
             onChange={(e) => setSelectedCustomer(customers.find(c => c.id === e.target.value) || null)}
           >
@@ -549,22 +567,22 @@ export const POS = () => {
                   </div>
                </div>
                {deliveryMode === 'ENTREGA' && (
-                 <div className="flex flex-col gap-2">
-                   {selectedCustomer && getAddresses(selectedCustomer.address).length > 0 && (
-                      <select 
-                        className="w-full h-8 text-[10px] font-black bg-slate-50 border border-slate-200 rounded-lg px-2 outline-none"
-                        onChange={(e) => {
-                          if (e.target.value !== 'NEW') setDeliveryAddress(e.target.value);
-                          else setDeliveryAddress('');
-                        }}
-                      >
-                         <option value="">Seleccionar domicilio guardado...</option>
-                         {getAddresses(selectedCustomer.address).map((a, idx) => (
-                           <option key={idx} value={a}>{a}</option>
-                         ))}
-                         <option value="NEW">+ Otra dirección...</option>
-                      </select>
-                   )}
+                  <div className="flex flex-col gap-2">
+                    {selectedCustomer && getAddresses(selectedCustomer).length > 0 && (
+                       <select 
+                         className="w-full h-8 text-[10px] font-black bg-slate-50 border border-slate-200 rounded-lg px-2 outline-none"
+                         onChange={(e) => {
+                           if (e.target.value !== 'NEW') setDeliveryAddress(e.target.value);
+                           else setDeliveryAddress('');
+                         }}
+                       >
+                          <option value="">Seleccionar domicilio guardado...</option>
+                          {getAddresses(selectedCustomer).map((a, idx) => (
+                            <option key={idx} value={a.address}>{a.address} ({a.notes})</option>
+                          ))}
+                          <option value="NEW">+ Otra dirección...</option>
+                       </select>
+                    )}
                    <Input 
                      placeholder="Escribir dirección de entrega..." 
                      className="text-xs h-8"
@@ -699,18 +717,18 @@ export const POS = () => {
       </div>
 
       {/* Success Modal Overlay */}
-      <AnimatePresence>
-        {isSuccess && (
+      {isSuccess && createPortal(
+        <AnimatePresence>
           <motion.div 
             initial={{ opacity: 0 }} 
             animate={{ opacity: 1 }} 
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-brand-blue/40 backdrop-blur-sm"
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-brand-blue/40 backdrop-blur-sm"
           >
             <motion.div 
                initial={{ scale: 0.8, opacity: 0 }}
                animate={{ scale: 1, opacity: 1 }}
-               className="bg-white p-12 rounded-3xl shadow-2xl flex flex-col items-center gap-6"
+               className="bg-white p-12 rounded-3xl shadow-2xl flex flex-col items-center gap-6 max-w-md w-full mx-4"
             >
               <div className="w-24 h-24 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center">
                 <CheckCircle2 size={64} />
@@ -734,8 +752,9 @@ export const POS = () => {
                </div>
             </motion.div>
           </motion.div>
-        )}
-      </AnimatePresence>
+        </AnimatePresence>,
+        document.body
+      )}
     </div>
   );
 };

@@ -62,6 +62,8 @@ export const Products = () => {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [adjustment, setAdjustment] = useState({ amount: 0, type: 'ADJUSTMENT', description: '' });
   const [editingProduct, setEditingProduct] = useState<any>(null);
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+  const [bulkUpdate, setBulkUpdate] = useState({ category_id: '', percentage: 0, target: 'price' as 'price' | 'cost' });
 
 
 
@@ -300,7 +302,79 @@ export const Products = () => {
       alert('No se pudo eliminar la categoría. Asegúrese de que no tenga dependencias restrictivas.');
     }
   };
+  const handleBulkPriceUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!confirm(`¿Está seguro de que desea aumentar los ${bulkUpdate.target === 'price' ? 'Precios de Venta' : 'Costos'} un ${bulkUpdate.percentage}%?`)) return;
+    
+    setLoading(true);
+    try {
+      const targetProducts = products.filter(p => !bulkUpdate.category_id || p.category_id === bulkUpdate.category_id);
+      
+      if (targetProducts.length === 0) {
+        alert('No hay productos en la categoría seleccionada.');
+        setLoading(false);
+        return;
+      }
 
+      const updates = targetProducts.map(p => {
+        const factor = 1 + (bulkUpdate.percentage / 100);
+        const newCost = bulkUpdate.target === 'cost' ? Math.round(p.cost * factor) : p.cost;
+        const newPrice = bulkUpdate.target === 'price' ? Math.round(p.price_base * factor) : p.price_base;
+        
+        return {
+          id: p.id,
+          cost: newCost,
+          price_base: newPrice
+        };
+      });
+
+      // Update products table
+      for (const chunk of chunkArray(updates, 50)) {
+        const { error } = await supabase
+          .from('products')
+          .upsert(chunk.map(u => ({
+            ...targetProducts.find(p => p.id === u.id), // Keep other fields
+            cost: u.cost,
+            price_base: u.price_base
+          })));
+        if (error) throw error;
+      }
+
+      // If updating price, also update product_prices for default list
+      if (bulkUpdate.target === 'price') {
+        const { data: defPriceList } = await supabase.from('price_lists').select('id').eq('is_default', true).limit(1).maybeSingle();
+        if (defPriceList) {
+          const priceUpdates = updates.map(u => ({
+            product_id: u.id,
+            price_list_id: defPriceList.id,
+            price: u.price_base,
+            min_quantity: 1
+          }));
+
+          for (const chunk of chunkArray(priceUpdates, 50)) {
+            const { error } = await supabase
+              .from('product_prices')
+              .upsert(chunk, { onConflict: 'product_id,price_list_id,min_quantity' });
+            if (error) throw error;
+          }
+        }
+      }
+
+      alert(`Se actualizaron ${targetProducts.length} productos con éxito.`);
+      setIsBulkModalOpen(false);
+      fetchProducts();
+    } catch (err: any) {
+      alert('Error en actualización masiva: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const chunkArray = (arr: any[], size: number) => {
+    return Array.from({ length: Math.ceil(arr.length / size) }, (v, i) =>
+      arr.slice(i * size, i * size + size)
+    );
+  };
 
   const downloadTemplate = () => {
     const headers = ['ARTICULOS', 'PRECIO', 'PRECIO DE VENTA'];
@@ -504,6 +578,9 @@ export const Products = () => {
               <Upload size={18} /> Importar Excel
             </div>
           </label>
+          <Button variant="outline" className="h-10 px-4 border-amber-200 text-amber-600 hover:bg-amber-50" onClick={() => setIsBulkModalOpen(true)}>
+            <AlertTriangle size={18} /> Aumentar Precios
+          </Button>
           <Button className="h-10 px-6" onClick={() => setIsAddModalOpen(true)}>
             <Plus size={18} /> Nuevo Producto
           </Button>
@@ -1057,6 +1134,81 @@ export const Products = () => {
         )}
       </AnimatePresence>
 
+      {/* Bulk Update Modal */}
+      <AnimatePresence>
+        {isBulkModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+            <Card className="w-full max-w-md p-8 relative">
+              <button 
+                onClick={() => setIsBulkModalOpen(false)}
+                className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-600"
+              >
+                <X size={20} />
+              </button>
+              
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 bg-amber-100 text-amber-600 rounded-xl flex items-center justify-center">
+                  <AlertTriangle size={24} />
+                </div>
+                <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Aumento por Categoría</h3>
+              </div>
+
+              <form onSubmit={handleBulkPriceUpdate} className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Seleccionar Categoría</label>
+                  <select 
+                    className="w-full input-standard text-sm"
+                    value={bulkUpdate.category_id}
+                    onChange={e => setBulkUpdate({...bulkUpdate, category_id: e.target.value})}
+                  >
+                    <option value="">TODAS LAS CATEGORÍAS</option>
+                    {categories.map(c => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">¿Qué desea aumentar?</label>
+                  <select 
+                    className="w-full input-standard text-sm"
+                    value={bulkUpdate.target}
+                    onChange={e => setBulkUpdate({...bulkUpdate, target: e.target.value as any})}
+                  >
+                    <option value="price">PRECIO DE VENTA</option>
+                    <option value="cost">COSTO DE COMPRA</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Porcentaje de Aumento (%)</label>
+                  <Input 
+                    required 
+                    type="number"
+                    step="0.01"
+                    value={bulkUpdate.percentage}
+                    onChange={e => setBulkUpdate({...bulkUpdate, percentage: Number(e.target.value)})}
+                    placeholder="Ej: 15" 
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1 italic">
+                    * El sistema redondeará los precios resultantes al entero más cercano.
+                  </p>
+                </div>
+
+                <div className="p-4 bg-amber-50 border border-amber-100 rounded-2xl text-[11px] text-amber-700 font-medium">
+                  <strong>Atención:</strong> Esta acción actualizará los precios de todos los productos de la categoría seleccionada de forma permanente.
+                </div>
+
+                <Button type="submit" disabled={loading} className="w-full h-12 mt-4 font-black bg-amber-600 hover:bg-amber-700">
+                  {loading ? 'PROCESANDO...' : 'APLICAR AUMENTO MASIVO'}
+                </Button>
+              </form>
+            </Card>
+          </div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 };
+

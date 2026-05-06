@@ -41,8 +41,16 @@ export const PublicShowcase = () => {
   const [isSuccess, setIsSuccess] = useState(false);
 
   useEffect(() => {
+    fetchCategories();
     fetchPublicProducts();
   }, [category]);
+
+  const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
+
+  const fetchCategories = async () => {
+    const { data } = await supabase.from('categories').select('id, name').order('name');
+    if (data) setCategories(data);
+  };
 
   const fetchPublicProducts = async () => {
     setLoading(true);
@@ -139,30 +147,30 @@ export const PublicShowcase = () => {
       </nav>
 
       {/* Hero Section */}
-      <header className="relative pt-32 pb-20 overflow-hidden bg-brand-blue">
+      <header className="relative pt-24 pb-12 overflow-hidden bg-brand-blue min-h-[400px] flex items-center">
         <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:20px_20px]" />
         <div className="max-w-7xl mx-auto px-6 relative flex flex-col items-center text-center">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="space-y-6 max-w-3xl"
+            className="space-y-4 max-w-3xl"
           >
-            <Badge variant="green" className="bg-emerald-400/20 text-emerald-400 border border-emerald-400/20 px-4 py-1.5">
+            <Badge variant="green" className="bg-emerald-400/20 text-emerald-400 border border-emerald-400/20 px-3 py-1 text-[10px] uppercase tracking-widest font-black">
               Envíos propios en toda la zona
             </Badge>
-            <h2 className="text-5xl md:text-7xl font-black text-white tracking-tight leading-[0.9]">
+            <h2 className="text-4xl md:text-6xl font-black text-white tracking-tight leading-[0.95]">
               Todo para tu obra en <span className="text-brand-red">un solo lugar.</span>
             </h2>
-            <p className="text-slate-300 text-lg md:text-xl font-medium max-w-2xl mx-auto">
+            <p className="text-slate-300 text-base md:text-lg font-medium max-w-xl mx-auto leading-relaxed">
               Materiales gruesos, terminaciones, ferretería y más. Los mejores precios de barrio con stock permanente garantizado.
             </p>
-            <div className="flex flex-wrap justify-center gap-4 pt-4">
-              <Button className="h-14 px-10 text-lg font-black bg-brand-red shadow-2xl shadow-red-500/40">
+            <div className="flex flex-wrap justify-center gap-3 pt-2">
+              <Button className="h-12 px-8 text-sm font-black bg-brand-red shadow-lg shadow-red-500/20">
                 Ver Catálogo
               </Button>
               <Button
                 variant="outline"
-                className="h-14 px-10 text-lg font-black border-white/20 text-white hover:bg-white/5"
+                className="h-12 px-8 text-sm font-black border-white/20 text-white hover:bg-white/5"
                 onClick={() => window.open('https://maps.google.com/?q=Av.+Avellaneda+5770,+Virreyes,+San+Fernando,+Buenos+Aires', '_blank')}
               >
                 Nuestra Ubicación
@@ -176,18 +184,35 @@ export const PublicShowcase = () => {
       <main className="max-w-7xl mx-auto px-6 py-20">
         <div className="flex flex-col lg:flex-row gap-12">
           {/* Filters Sidebar */}
-          <aside className="lg:w-64 space-y-8">
-            <div>
-              <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-4">Categorías</h3>
-              <div className="flex flex-col gap-2">
-                {['Todos', 'Gruesos', 'Áridos', 'Terminaciones', 'Pinturas', 'Sanitarios'].map(cat => (
+          <aside className="lg:w-56 space-y-6">
+            <div className="sticky top-28">
+              <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Categorías</h3>
+              <div className="flex flex-col gap-1.5">
+                <button
+                  onClick={() => setCategory(null)}
+                  className={cn(
+                    "flex justify-between items-center px-4 py-2.5 rounded-xl transition-all text-xs font-bold",
+                    !category
+                      ? "bg-brand-red text-white shadow-lg shadow-red-500/20"
+                      : "hover:bg-slate-50 text-slate-500"
+                  )}
+                >
+                  Todos
+                  {!category && <CheckCircle2 size={12} />}
+                </button>
+                {categories.map(cat => (
                   <button
-                    key={cat}
-                    onClick={() => setCategory(cat === 'Todos' ? null : cat)}
-                    className="flex justify-between items-center px-4 py-3 rounded-xl hover:bg-slate-50 font-bold text-slate-600 transition-all text-sm group"
+                    key={cat.id}
+                    onClick={() => setCategory(cat.id)}
+                    className={cn(
+                      "flex justify-between items-center px-4 py-2.5 rounded-xl transition-all text-xs font-bold text-left",
+                      category === cat.id
+                        ? "bg-brand-red text-white shadow-lg shadow-red-500/20"
+                        : "hover:bg-slate-50 text-slate-500"
+                    )}
                   >
-                    {cat}
-                    <ChevronRight size={14} className="opacity-0 group-hover:opacity-100 transition-all" />
+                    <span className="truncate">{cat.name}</span>
+                    {category === cat.id && <CheckCircle2 size={12} className="shrink-0 ml-2" />}
                   </button>
                 ))}
               </div>
@@ -203,55 +228,56 @@ export const PublicShowcase = () => {
           </aside>
 
           {/* Product Grid */}
-          <div className="flex-1 space-y-10">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-              <div className="relative flex-1 max-w-md w-full">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={20} />
+          <div className="flex-1 space-y-8">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              <div className="relative flex-1 max-w-lg w-full">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
                 <input
                   type="text"
                   placeholder="Buscá por nombre de producto..."
-                  className="w-full pl-12 pr-4 py-4 rounded-2xl bg-slate-50 border-none outline-none focus:ring-2 focus:ring-brand-blue/10 text-slate-700 font-bold transition-all"
+                  className="w-full pl-11 pr-4 py-3.5 rounded-2xl bg-slate-50 border border-slate-100 outline-none focus:ring-4 focus:ring-brand-blue/5 text-sm text-slate-700 font-bold transition-all"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                 />
               </div>
-              <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">{filteredProducts.length} Productos encontrados</p>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{filteredProducts.length} Productos</p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {filteredProducts.map(p => (
                 <motion.div
                   layout
                   key={p.id}
-                  className="group bg-white rounded-[2rem] border border-slate-100 p-2 shadow-sm hover:shadow-2xl transition-all"
+                  className="group bg-white rounded-3xl border border-slate-100 p-2 shadow-sm hover:shadow-xl transition-all"
                 >
-                  <div className="aspect-[4/3] rounded-[1.8rem] bg-slate-100 relative overflow-hidden flex items-center justify-center text-slate-300">
+                  <div className="aspect-[5/4] rounded-2xl bg-slate-50 relative overflow-hidden flex items-center justify-center text-slate-200">
                     {p.image_url ? (
                       <img
                         src={p.image_url}
                         alt={p.name}
-                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                       />
                     ) : (
-                      <Package size={64} strokeWidth={1} />
+                      <Package size={48} strokeWidth={1} />
                     )}
                   </div>
-                  <div className="p-6 space-y-4">
+                  <div className="p-4 space-y-3">
                     <div className="space-y-1">
-                      <Badge variant="blue" className="text-[9px]">{p.category?.name || 'Varios'}</Badge>
-                      <h3 className="text-xl font-bold text-slate-900 leading-tight group-hover:text-brand-red transition-colors">{p.name}</h3>
+                      <div className="flex justify-between items-start gap-2">
+                        <h3 className="text-base font-black text-slate-800 leading-tight group-hover:text-brand-red transition-colors line-clamp-2 min-h-[2.5rem]">{p.name}</h3>
+                      </div>
+                      <Badge variant="blue" className="text-[8px] px-2 py-0.5 bg-slate-50 border-slate-100 text-slate-400 font-black">{p.category?.name || 'Varios'}</Badge>
                     </div>
-                    <div className="flex items-center justify-between pt-4">
+                    <div className="flex items-center justify-between pt-2">
                       <div className="flex flex-col">
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Precio Hoy</span>
-                        <span className="text-2xl font-black text-brand-blue">${p.price_base.toLocaleString()}</span>
+                        <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Precio</span>
+                        <span className="text-xl font-black text-brand-blue">${p.price_base.toLocaleString()}</span>
                       </div>
                       <Button
                         onClick={() => addToCart(p)}
-                        className="h-12 px-6 bg-brand-red text-white flex gap-2 items-center rounded-2xl group/btn"
+                        className="w-10 h-10 p-0 bg-brand-red hover:bg-slate-900 text-white flex items-center justify-center rounded-xl transition-all active:scale-90 shadow-lg shadow-red-500/20"
                       >
-                        <Plus size={18} className="group-hover/btn:rotate-90 transition-transform" />
-                        Sumar
+                        <Plus size={20} />
                       </Button>
                     </div>
                   </div>
