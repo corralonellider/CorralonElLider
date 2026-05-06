@@ -45,6 +45,8 @@ export const generateTicketHTML = (saleResult: any, isCreditNote: boolean = fals
     let docName = 'REMITO NO VÁLIDO COMO FACTURA';
     if (isAfipDoc) {
         docName = isCreditNote ? `NOTA DE CRÉDITO ${docLetter}` : `FACTURA ${docLetter}`;
+    } else if (saleResult.type === 'PRESUPUESTO') {
+        docName = 'PRESUPUESTO VÁLIDO POR 7 DÍAS';
     }
 
     const cbteStr = cbteNroToUse ? String(cbteNroToUse).padStart(8, '0') : (saleResult.order_number || String(saleResult.id).slice(0,8));

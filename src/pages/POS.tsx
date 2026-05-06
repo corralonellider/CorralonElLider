@@ -179,9 +179,12 @@ export const POS = () => {
     const insertData: any = {
       customer_id: selectedCustomer?.id || null,
       total,
-      document_type: documentType,
       notes: saleNotes.trim() ? saleNotes.trim() : null
     };
+
+    if (!isQuote) {
+      insertData.document_type = documentType;
+    }
     
     // Llamar a AFIP si es factura y hay CUIT Emisor
     let afipData = null;
@@ -256,7 +259,7 @@ export const POS = () => {
     setSaleResult({ 
       id: entryId, 
       order_number: entry.order_number, 
-      type: documentType, 
+      type: isQuote ? 'PRESUPUESTO' : documentType, 
       items: [...cart], 
       total, 
       customer: selectedCustomer, 
@@ -368,8 +371,8 @@ export const POS = () => {
       const pdfUrl = await generateAndUploadTicketPDF(saleData);
 
       const phone = selectedCustomer.phone.replace(/[^0-9]/g, '');
-      const docName = saleResult.afip_cae ? 'Factura' : 'Remito';
-      const text = `¡Hola! Aquí tienes tu comprobante de compra (${docName}) de Corralón El Líder:\n\n📄 Ver PDF: ${pdfUrl}\n\n¡Gracias por tu compra!`;
+      const docName = saleResult.type === 'PRESUPUESTO' ? 'Presupuesto' : saleResult.afip_cae ? 'Factura' : 'Remito';
+      const text = `¡Hola! Aquí tienes tu comprobante (${docName}) de Corralón El Líder:\n\n📄 Ver PDF: ${pdfUrl}\n\n¡Cualquier duda quedamos a disposición!`;
       
       window.open(`https://wa.me/${phone.startsWith('54') ? phone : '54' + phone}?text=${encodeURIComponent(text)}`, '_blank');
     } catch (error: any) {
